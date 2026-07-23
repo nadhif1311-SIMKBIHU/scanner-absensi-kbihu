@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#8c082d">
+  <title>Scanner QR Absensi KBIHU Al Amanah</title>
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <style>
+    :root {
+      --maroon: #8c082d;
+      --maroon-dark: #65001f;
+      --gold: #c99a33;
+      --cream: #fff8e8;
+      --green: #176b45;
+      --red: #b3262e;
+      --blue: #2674c9;
+      --text: #2f2f2f;
+      --muted: #727272;
+      --surface: #ffffff;
+      --page: #f3f4f6;
+      --border: #e3e3e3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--page);
+      color: var(--text);
+      font-family: Arial, sans-serif;
+    }
+
+    .header {
+      padding: 18px 18px 16px;
+      color: white;
+      background: linear-gradient(135deg, var(--maroon-dark), var(--maroon));
+      border-bottom: 4px solid var(--gold);
+      text-align: center;
+    }
+
+    .header h1 {
+      margin: 0;
+      font-size: clamp(22px, 5vw, 32px);
+    }
+
+    .header p {
+      margin: 7px 0 0;
+      color: #f5d99d;
+      font-size: 14px;
+    }
+
+    .wrap {
+      width: min(760px, 100%);
+      margin: 0 auto;
+      padding: 16px;
+    }
+
+    .card {
+      margin-bottom: 15px;
+      padding: 18px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 5px 20px rgba(0,0,0,.08);
+    }
+
+    .session {
+      border-left: 5px solid var(--gold);
+    }
+
+    .eyebrow {
+      margin-bottom: 7px;
+      color: #a67812;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 1.4px;
+    }
+
+    h2, h3 { margin: 0; color: var(--maroon); }
+
+    .session-title {
+      margin-top: 4px;
+      font-size: 19px;
+      line-height: 1.35;
+    }
+
+    .session-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      margin-top: 12px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    #reader {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 14px;
+      background: #111;
+    }
+
+    #reader video {
+      object-fit: cover !important;
+    }
+
+    .scanner-help {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      text-align: center;
+    }
+
+    .actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    button {
+      min-height: 48px;
+      padding: 11px 16px;
+      border: 0;
+      border-radius: 10px;
+      color: white;
+      background: var(--maroon);
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    button.secondary { background: var(--blue); }
+    button.danger { background: var(--red); }
+    button:disabled { opacity: .55; cursor: not-allowed; }
+
+    .manual-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 9px;
+      margin-top: 12px;
+    }
+
+    input {
+      width: 100%;
+      min-height: 48px;
+      padding: 11px 13px;
+      border: 1px solid #cfcfcf;
+      border-radius: 10px;
+      font-size: 16px;
+    }
+
+    .result {
+      display: none;
+      padding: 18px;
+      border-radius: 16px;
+      text-align: center;
+    }
+
+    .result.show { display: block; }
+    .result.success { color: #145c2b; background: #ddf5e4; border: 1px solid #b9e5c4; }
+    .result.warning { color: #8b5508; background: #fff0cd; border: 1px solid #efd38e; }
+    .result.error { color: #922126; background: #fde2e2; border: 1px solid #f1bcbc; }
+
+    .result-icon { font-size: 42px; }
+    .result-name { margin-top: 8px; font-size: 22px; font-weight: 800; }
+    .result-detail { margin-top: 6px; font-size: 14px; line-height: 1.5; }
+
+    .history-list {
+      display: grid;
+      gap: 9px;
+      margin-top: 13px;
+    }
+
+    .history-item {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      padding: 11px;
+      background: #fafafa;
+      border: 1px solid #e7e7e7;
+      border-radius: 10px;
+    }
+
+    .history-name { font-weight: 700; }
+    .history-porsi { margin-top: 3px; color: var(--muted); font-size: 12px; }
+    .history-time { color: var(--green); font-size: 12px; font-weight: 700; }
+
+    .settings {
+      display: none;
+    }
+
+    .settings.show { display: block; }
+
+    .field { margin-top: 12px; }
+    .field label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .notice {
+      padding: 11px 13px;
+      color: #684d08;
+      background: #fff7d8;
+      border: 1px solid #ecd98c;
+      border-radius: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .status-line {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    @media (max-width: 560px) {
+      .wrap { padding: 11px; }
+      .card { padding: 14px; border-radius: 13px; }
+      .actions, .manual-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <header class="header">
+    <h1>Scanner QR Absensi</h1>
+    <p>KBIHU Al Amanah Bojonegoro</p>
+  </header>
+
+  <main class="wrap">
+    <section class="card session">
+      <div class="eyebrow">SESI MANASIK</div>
+      <h2 class="session-title" id="sessionTitle">Pilih atau masukkan ID jadwal</h2>
+      <div class="session-meta">
+        <span id="sessionId">ID Jadwal: -</span>
+        <span id="connectionState">Backend belum diatur</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="reader"></div>
+      <p class="scanner-help">
+        Arahkan kamera ke QR pada kartu jamaah. Setelah terbaca, kehadiran dicatat otomatis dan kamera tetap siap memindai kartu berikutnya.
+      </p>
+
+      <div class="actions">
+        <button id="btnStart" class="secondary" type="button">📷 Mulai Kamera</button>
+        <button id="btnStop" class="danger" type="button" disabled>⏹ Hentikan Kamera</button>
+      </div>
+
+      <div class="manual-row">
+        <input id="manualPorsi" inputmode="numeric" placeholder="Nomor porsi manual">
+        <button id="btnManual" type="button">Catat Hadir</button>
+      </div>
+
+      <div class="status-line" id="scannerStatus">Scanner belum dimulai.</div>
+    </section>
+
+    <section id="resultBox" class="result">
+      <div class="result-icon" id="resultIcon">✅</div>
+      <div class="result-name" id="resultName"></div>
+      <div class="result-detail" id="resultDetail"></div>
+    </section>
+
+    <section class="card">
+      <h3>Riwayat Scan Terakhir</h3>
+      <div id="historyList" class="history-list">
+        <div class="notice">Belum ada QR yang dipindai pada perangkat ini.</div>
+      </div>
+    </section>
+
+    <section class="card">
+      <button id="btnSettings" type="button">⚙️ Pengaturan Scanner</button>
+
+      <div id="settingsPanel" class="settings">
+        <div class="field">
+          <label for="endpointInput">URL Web App Apps Script</label>
+          <input id="endpointInput" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+
+        <div class="field">
+          <label for="tokenInput">Token API</label>
+          <input id="tokenInput" placeholder="Token rahasia dari Kode.gs">
+        </div>
+
+        <div class="field">
+          <label for="jadwalInput">ID Jadwal</label>
+          <input id="jadwalInput" placeholder="Contoh: JDW-001">
+        </div>
+
+        <div class="field">
+          <label for="judulInput">Judul sesi</label>
+          <input id="judulInput" placeholder="Contoh: Pertemuan 1 — Fikih Haji">
+        </div>
+
+        <div class="actions">
+          <button id="btnSaveSettings" type="button">Simpan Pengaturan</button>
+          <button id="btnClearSettings" class="danger" type="button">Hapus Pengaturan</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'kbihuScannerConfigV1';
+    const HISTORY_KEY = 'kbihuScannerHistoryV1';
+
+    let scanner = null;
+    let isRunning = false;
+    let isSubmitting = false;
+    let lastCode = '';
+    let lastCodeAt = 0;
+    let resultTimer = null;
+
+    const el = id => document.getElementById(id);
+
+    function loadConfig() {
+      const params = new URLSearchParams(location.search);
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+
+      const config = {
+        endpoint: params.get('endpoint') || saved.endpoint || '',
+        token: params.get('token') || saved.token || '',
+        idJadwal: params.get('jadwal') || saved.idJadwal || '',
+        judul: params.get('judul') || saved.judul || ''
+      };
+
+      el('endpointInput').value = config.endpoint;
+      el('tokenInput').value = config.token;
+      el('jadwalInput').value = config.idJadwal;
+      el('judulInput').value = config.judul;
+
+      updateSession(config);
+      return config;
+    }
+
+    function getConfig() {
+      return {
+        endpoint: el('endpointInput').value.trim(),
+        token: el('tokenInput').value.trim(),
+        idJadwal: el('jadwalInput').value.trim(),
+        judul: el('judulInput').value.trim()
+      };
+    }
+
+    function updateSession(config) {
+      el('sessionTitle').textContent =
+        config.judul || 'Sesi Absensi Manasik';
+
+      el('sessionId').textContent =
+        'ID Jadwal: ' + (config.idJadwal || '-');
+
+      el('connectionState').textContent =
+        config.endpoint && config.token && config.idJadwal
+          ? 'Backend siap'
+          : 'Backend belum lengkap';
+    }
+
+    function saveConfig() {
+      const config = getConfig();
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      updateSession(config);
+      showResult('success', '✅', 'Pengaturan tersimpan', 'Scanner siap digunakan.');
+    }
+
+    function clearConfig() {
+      localStorage.removeItem(STORAGE_KEY);
+      ['endpointInput', 'tokenInput', 'jadwalInput', 'judulInput']
+        .forEach(id => el(id).value = '');
+      updateSession({});
+      showResult('warning', '⚠️', 'Pengaturan dihapus', 'Masukkan kembali URL backend, token, dan ID jadwal.');
+    }
+
+    function validateConfig() {
+      const config = getConfig();
+
+      if (!config.endpoint || !config.token || !config.idJadwal) {
+        el('settingsPanel').classList.add('show');
+        showResult(
+          'warning',
+          '⚙️',
+          'Pengaturan belum lengkap',
+          'Isi URL Web App, token API, dan ID jadwal terlebih dahulu.'
+        );
+        return null;
+      }
+
+      return config;
+    }
+
+    async function startScanner() {
+      if (isRunning) return;
+      const config = validateConfig();
+      if (!config) return;
+
+      el('scannerStatus').textContent = 'Meminta izin kamera...';
+
+      try {
+        scanner = scanner || new Html5Qrcode('reader');
+
+        const cameras = await Html5Qrcode.getCameras();
+        if (!cameras || cameras.length === 0) {
+          throw new Error('Tidak ada kamera yang terdeteksi.');
+        }
+
+        const backCamera =
+          cameras.find(camera =>
+            /back|rear|environment/i.test(camera.label)
+          ) || cameras[cameras.length - 1];
+
+        await scanner.start(
+          { deviceId: { exact: backCamera.id } },
+          {
+            fps: 10,
+            qrbox: function(viewfinderWidth, viewfinderHeight) {
+              const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
+              return { width: edge, height: edge };
+            },
+            aspectRatio: 1.0
+          },
+          onScanSuccess,
+          function() {}
+        );
+
+        isRunning = true;
+        el('btnStart').disabled = true;
+        el('btnStop').disabled = false;
+        el('scannerStatus').textContent = 'Kamera aktif. Arahkan QR kartu ke kotak pemindai.';
+      } catch (error) {
+        isRunning = false;
+        el('btnStart').disabled = false;
+        el('btnStop').disabled = true;
+        el('scannerStatus').textContent = 'Kamera gagal dibuka.';
+        showResult(
+          'error',
+          '❌',
+          'Kamera tidak dapat dibuka',
+          error && error.message ? error.message : String(error)
+        );
+      }
+    }
+
+    async function stopScanner() {
+      try {
+        if (scanner && isRunning) {
+          await scanner.stop();
+          await scanner.clear();
+        }
+      } catch (error) {
+        console.warn(error);
+      } finally {
+        isRunning = false;
+        el('btnStart').disabled = false;
+        el('btnStop').disabled = true;
+        el('scannerStatus').textContent = 'Scanner dihentikan.';
+      }
+    }
+
+    function onScanSuccess(decodedText) {
+      const nomorPorsi = normalizeQrValue(decodedText);
+      if (!nomorPorsi) return;
+
+      const now = Date.now();
+      if (nomorPorsi === lastCode && now - lastCodeAt < 5000) {
+        return;
+      }
+
+      lastCode = nomorPorsi;
+      lastCodeAt = now;
+      submitAttendance(nomorPorsi, 'Scan QR');
+    }
+
+    function normalizeQrValue(value) {
+      const text = String(value || '').trim();
+
+      // Bila QR berisi URL, coba ambil parameter nomorPorsi/porsi.
+      try {
+        const url = new URL(text);
+        return (
+          url.searchParams.get('nomorPorsi') ||
+          url.searchParams.get('porsi') ||
+          text
+        ).trim();
+      } catch (error) {
+        return text;
+      }
+    }
+
+    function submitManual() {
+      const nomorPorsi = el('manualPorsi').value.trim();
+      if (!nomorPorsi) {
+        showResult('warning', '⚠️', 'Nomor porsi kosong', 'Masukkan nomor porsi jamaah.');
+        return;
+      }
+
+      submitAttendance(nomorPorsi, 'Manual');
+    }
+
+    function submitAttendance(nomorPorsi, metode) {
+      if (isSubmitting) return;
+
+      const config = validateConfig();
+      if (!config) return;
+
+      isSubmitting = true;
+      el('scannerStatus').textContent = 'Mencatat kehadiran ' + nomorPorsi + '...';
+
+      const callbackName =
+        '__kbihuCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+
+      const timeout = setTimeout(function() {
+        cleanupJsonp(callbackName, script);
+        isSubmitting = false;
+        el('scannerStatus').textContent = 'Backend tidak merespons.';
+        showResult(
+          'error',
+          '❌',
+          'Gagal menghubungi backend',
+          'Periksa URL Web App, deployment, koneksi internet, dan token API.'
+        );
+      }, 15000);
+
+      window[callbackName] = function(response) {
+        clearTimeout(timeout);
+        cleanupJsonp(callbackName, script);
+        isSubmitting = false;
+
+        const result = response || {};
+        const success = Boolean(result.sukses);
+        const duplicate = Boolean(result.duplikat);
+
+        if (success) {
+          const nama = result.namaJamaah || nomorPorsi;
+          const waktu = result.waktu || '';
+          const detail = duplicate
+            ? (result.pesan || 'Jamaah sudah tercatat pada sesi ini.')
+            : ('Hadir' + (waktu ? ' • ' + waktu : '') + ' • ' + metode);
+
+          showResult(
+            duplicate ? 'warning' : 'success',
+            duplicate ? '⚠️' : '✅',
+            nama,
+            detail
+          );
+
+          addHistory({
+            nama: nama,
+            nomorPorsi: nomorPorsi,
+            waktu: waktu || new Date().toLocaleTimeString('id-ID'),
+            duplicate: duplicate
+          });
+
+          beep(duplicate ? 420 : 880);
+          navigator.vibrate?.(duplicate ? [120, 80, 120] : 160);
+          el('manualPorsi').value = '';
+          el('scannerStatus').textContent = 'Scanner siap membaca kartu berikutnya.';
+        } else {
+          showResult(
+            'error',
+            '❌',
+            'Absensi gagal',
+            result.pesan || 'Data tidak dapat disimpan.'
+          );
+          beep(240);
+          navigator.vibrate?.([180, 100, 180]);
+          el('scannerStatus').textContent = 'Silakan coba kembali.';
+        }
+      };
+
+      const query = new URLSearchParams({
+        api: 'absensiQr',
+        callback: callbackName,
+        token: config.token,
+        idJadwal: config.idJadwal,
+        nomorPorsi: nomorPorsi,
+        metode: metode
+      });
+
+      const script = document.createElement('script');
+      script.src = config.endpoint.replace(/\/+$/, '') + '?' + query.toString();
+      script.onerror = function() {
+        clearTimeout(timeout);
+        cleanupJsonp(callbackName, script);
+        isSubmitting = false;
+        el('scannerStatus').textContent = 'Gagal memanggil backend.';
+        showResult('error', '❌', 'Koneksi gagal', 'Backend Apps Script tidak dapat diakses.');
+      };
+      document.body.appendChild(script);
+    }
+
+    function cleanupJsonp(callbackName, script) {
+      try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+      if (script && script.parentNode) script.parentNode.removeChild(script);
+    }
+
+    function showResult(type, icon, name, detail) {
+      clearTimeout(resultTimer);
+      const box = el('resultBox');
+      box.className = 'result show ' + type;
+      el('resultIcon').textContent = icon;
+      el('resultName').textContent = name;
+      el('resultDetail').textContent = detail;
+
+      resultTimer = setTimeout(function() {
+        box.classList.remove('show');
+      }, 7000);
+    }
+
+    function beep(frequency) {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gain = ctx.createGain();
+
+        oscillator.frequency.value = frequency;
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+
+        oscillator.connect(gain);
+        gain.connect(ctx.destination);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.18);
+      } catch (error) {}
+    }
+
+    function loadHistory() {
+      return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+    }
+
+    function addHistory(item) {
+      const history = loadHistory();
+      history.unshift(item);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 8)));
+      renderHistory();
+    }
+
+    function renderHistory() {
+      const history = loadHistory();
+      const container = el('historyList');
+
+      if (!history.length) {
+        container.innerHTML =
+          '<div class="notice">Belum ada QR yang dipindai pada perangkat ini.</div>';
+        return;
+      }
+
+      container.innerHTML = history.map(item => `
+        <div class="history-item">
+          <div>
+            <div class="history-name">${escapeHtml(item.nama || '-')}</div>
+            <div class="history-porsi">${escapeHtml(item.nomorPorsi || '-')}</div>
+          </div>
+          <div class="history-time">
+            ${item.duplicate ? 'Sudah tercatat' : escapeHtml(item.waktu || '')}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function escapeHtml(value) {
+      return String(value || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    el('btnStart').addEventListener('click', startScanner);
+    el('btnStop').addEventListener('click', stopScanner);
+    el('btnManual').addEventListener('click', submitManual);
+    el('manualPorsi').addEventListener('keydown', event => {
+      if (event.key === 'Enter') submitManual();
+    });
+    el('btnSettings').addEventListener('click', () => {
+      el('settingsPanel').classList.toggle('show');
+    });
+    el('btnSaveSettings').addEventListener('click', saveConfig);
+    el('btnClearSettings').addEventListener('click', clearConfig);
+
+    window.addEventListener('beforeunload', stopScanner);
+
+    loadConfig();
+    renderHistory();
+  </script>
+</body>
+</html>
