@@ -238,11 +238,16 @@
 
   <main class="wrap">
     <section class="card session">
-      <div class="eyebrow">SESI MANASIK</div>
-      <h2 class="session-title" id="sessionTitle">Pilih atau masukkan ID jadwal</h2>
+      <div class="eyebrow">JADWAL ABSENSI AKTIF</div>
+      <h2 class="session-title" id="sessionTitle">Memeriksa jadwal aktif...</h2>
       <div class="session-meta">
         <span id="sessionId">ID Jadwal: -</span>
-        <span id="connectionState">Backend belum diatur</span>
+        <span id="sessionSchedule">Tanggal/Waktu: -</span>
+        <span id="connectionState">Menghubungkan backend...</span>
+      </div>
+      <div class="actions">
+        <button id="btnRefreshSession" class="secondary" type="button">🔄 Perbarui Jadwal Aktif</button>
+        <button id="btnSettingsTop" type="button">⚙️ Pengaturan</button>
       </div>
     </section>
 
@@ -282,6 +287,10 @@
       <button id="btnSettings" type="button">⚙️ Pengaturan Scanner</button>
 
       <div id="settingsPanel" class="settings">
+        <div class="notice">
+          Pengaturan URL Web App dan token hanya diperlukan sekali pada setiap perangkat. Jadwal manasik diambil otomatis dari jadwal yang diaktifkan oleh admin SIM KBIHU.
+        </div>
+
         <div class="field">
           <label for="endpointInput">URL Web App Apps Script</label>
           <input id="endpointInput" placeholder="https://script.google.com/macros/s/.../exec">
@@ -289,17 +298,7 @@
 
         <div class="field">
           <label for="tokenInput">Token API</label>
-          <input id="tokenInput" placeholder="Token rahasia dari Kode.gs">
-        </div>
-
-        <div class="field">
-          <label for="jadwalInput">ID Jadwal</label>
-          <input id="jadwalInput" placeholder="Contoh: JDW-001">
-        </div>
-
-        <div class="field">
-          <label for="judulInput">Judul sesi</label>
-          <input id="judulInput" placeholder="Contoh: Pertemuan 1 — Fikih Haji">
+          <input id="tokenInput" placeholder="Token rahasia scanner">
         </div>
 
         <div class="actions">
@@ -311,8 +310,8 @@
   </main>
 
   <script>
-    const STORAGE_KEY = 'kbihuScannerConfigV1';
-    const HISTORY_KEY = 'kbihuScannerHistoryV1';
+    const STORAGE_KEY = 'kbihuScannerPermanentConfigV2';
+    const HISTORY_KEY = 'kbihuScannerHistoryV2';
 
     let scanner = null;
     let isRunning = false;
@@ -320,102 +319,182 @@
     let lastCode = '';
     let lastCodeAt = 0;
     let resultTimer = null;
+    let activeSession = null;
+    let sessionCheckedAt = 0;
+    let sessionTimer = null;
 
     const el = id => document.getElementById(id);
 
     function loadConfig() {
       const params = new URLSearchParams(location.search);
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-
       const config = {
         endpoint: params.get('endpoint') || saved.endpoint || '',
-        token: params.get('token') || saved.token || '',
-        idJadwal: params.get('jadwal') || saved.idJadwal || '',
-        judul: params.get('judul') || saved.judul || ''
+        token: params.get('token') || saved.token || ''
       };
 
       el('endpointInput').value = config.endpoint;
       el('tokenInput').value = config.token;
-      el('jadwalInput').value = config.idJadwal;
-      el('judulInput').value = config.judul;
 
-      updateSession(config);
+      if (params.get('endpoint') || params.get('token')) {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+      }
       return config;
     }
 
     function getConfig() {
       return {
         endpoint: el('endpointInput').value.trim(),
-        token: el('tokenInput').value.trim(),
-        idJadwal: el('jadwalInput').value.trim(),
-        judul: el('judulInput').value.trim()
+        token: el('tokenInput').value.trim()
       };
-    }
-
-    function updateSession(config) {
-      el('sessionTitle').textContent =
-        config.judul || 'Sesi Absensi Manasik';
-
-      el('sessionId').textContent =
-        'ID Jadwal: ' + (config.idJadwal || '-');
-
-      el('connectionState').textContent =
-        config.endpoint && config.token && config.idJadwal
-          ? 'Backend siap'
-          : 'Backend belum lengkap';
     }
 
     function saveConfig() {
       const config = getConfig();
+      if (!config.endpoint || !config.token) {
+        showResult('warning','⚠️','Pengaturan belum lengkap','Isi URL Web App dan token API.');
+        return;
+      }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      updateSession(config);
-      showResult('success', '✅', 'Pengaturan tersimpan', 'Scanner siap digunakan.');
+      showResult('success','✅','Pengaturan tersimpan','Scanner akan selalu mengambil jadwal aktif secara otomatis.');
+      fetchActiveSession(true);
     }
 
     function clearConfig() {
       localStorage.removeItem(STORAGE_KEY);
-      ['endpointInput', 'tokenInput', 'jadwalInput', 'judulInput']
-        .forEach(id => el(id).value = '');
-      updateSession({});
-      showResult('warning', '⚠️', 'Pengaturan dihapus', 'Masukkan kembali URL backend, token, dan ID jadwal.');
+      el('endpointInput').value = '';
+      el('tokenInput').value = '';
+      activeSession = null;
+      updateSessionUi(null, 'Backend belum diatur');
+      showResult('warning','⚠️','Pengaturan dihapus','Buka kembali link permanen dari SIM KBIHU atau masukkan URL backend dan token.');
     }
 
-    function validateConfig() {
+    function validateConfig(showWarning = true) {
       const config = getConfig();
+      if (!config.endpoint || !config.token) {
+        if (showWarning) {
+          el('settingsPanel').classList.add('show');
+          showResult('warning','⚙️','Pengaturan belum lengkap','Isi URL Web App dan token API terlebih dahulu.');
+        }
+        return null;
+      }
+      return config;
+    }
 
-      if (!config.endpoint || !config.token || !config.idJadwal) {
-        el('settingsPanel').classList.add('show');
-        showResult(
-          'warning',
-          '⚙️',
-          'Pengaturan belum lengkap',
-          'Isi URL Web App, token API, dan ID jadwal terlebih dahulu.'
-        );
+    function updateSessionUi(session, stateText) {
+      activeSession = session || null;
+      if (session) {
+        el('sessionTitle').textContent = session.label || session.materi || 'Absensi Manasik';
+        el('sessionId').textContent = 'ID Jadwal: ' + (session.id || '-');
+        const schedule = [session.tanggalId, session.waktu, session.tempat].filter(Boolean).join(' • ');
+        el('sessionSchedule').textContent = schedule || 'Tanggal/Waktu: -';
+        el('connectionState').textContent = stateText || 'Jadwal aktif siap';
+        el('connectionState').style.color = '#176b45';
+      } else {
+        el('sessionTitle').textContent = 'Belum ada jadwal absensi aktif';
+        el('sessionId').textContent = 'ID Jadwal: -';
+        el('sessionSchedule').textContent = 'Admin perlu mengaktifkan jadwal dari SIM KBIHU';
+        el('connectionState').textContent = stateText || 'Menunggu jadwal aktif';
+        el('connectionState').style.color = '#b3262e';
+        if (isRunning) stopScanner();
+      }
+    }
+
+    function jsonpRequest(params, timeoutMs = 15000) {
+      return new Promise((resolve, reject) => {
+        const config = validateConfig(false);
+        if (!config) {
+          reject(new Error('URL backend atau token belum diatur.'));
+          return;
+        }
+
+        const callbackName = '__kbihuPermanent_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+        let script = document.createElement('script');
+        const timeout = setTimeout(() => {
+          cleanupJsonp(callbackName, script);
+          reject(new Error('Backend tidak merespons.'));
+        }, timeoutMs);
+
+        window[callbackName] = response => {
+          clearTimeout(timeout);
+          cleanupJsonp(callbackName, script);
+          resolve(response || {});
+        };
+
+        const query = new URLSearchParams(Object.assign({
+          api: 'absensiQr',
+          callback: callbackName,
+          token: config.token
+        }, params || {}));
+
+        script.src = config.endpoint.replace(/\/+$/, '') + '?' + query.toString();
+        script.onerror = () => {
+          clearTimeout(timeout);
+          cleanupJsonp(callbackName, script);
+          reject(new Error('Backend Apps Script tidak dapat diakses.'));
+        };
+        document.body.appendChild(script);
+      });
+    }
+
+    async function fetchActiveSession(showMessage = false) {
+      const config = validateConfig(showMessage);
+      if (!config) {
+        updateSessionUi(null, 'Backend belum diatur');
         return null;
       }
 
-      return config;
+      try {
+        el('connectionState').textContent = 'Memeriksa jadwal aktif...';
+        const response = await jsonpRequest({action:'session'});
+        sessionCheckedAt = Date.now();
+        if (!response.sukses) throw new Error(response.pesan || 'Gagal mengambil jadwal aktif.');
+        updateSessionUi(response.aktif ? response.sesi : null, response.pesan);
+        if (showMessage) {
+          showResult(
+            response.aktif ? 'success' : 'warning',
+            response.aktif ? '✅' : '⚠️',
+            response.aktif ? 'Jadwal aktif ditemukan' : 'Belum ada jadwal aktif',
+            response.aktif
+              ? ((response.sesi && response.sesi.label) || 'Scanner siap digunakan.')
+              : 'Aktifkan jadwal dari menu Absensi Manasik di SIM KBIHU.'
+          );
+        }
+        return activeSession;
+      } catch (error) {
+        updateSessionUi(null, 'Koneksi backend gagal');
+        if (showMessage) showResult('error','❌','Gagal mengambil jadwal',error.message || String(error));
+        return null;
+      }
+    }
+
+    async function ensureActiveSession() {
+      if (!activeSession || Date.now() - sessionCheckedAt > 12000) {
+        await fetchActiveSession(false);
+      }
+      if (!activeSession) {
+        showResult('warning','⚠️','Belum ada jadwal aktif','Admin harus mengaktifkan jadwal pertemuan dari SIM KBIHU.');
+        return null;
+      }
+      return activeSession;
     }
 
     async function startScanner() {
       if (isRunning) return;
       const config = validateConfig();
       if (!config) return;
+      const session = await ensureActiveSession();
+      if (!session) return;
 
       el('scannerStatus').textContent = 'Meminta izin kamera...';
-
       try {
         scanner = scanner || new Html5Qrcode('reader');
-
         const cameras = await Html5Qrcode.getCameras();
-        if (!cameras || cameras.length === 0) {
-          throw new Error('Tidak ada kamera yang terdeteksi.');
-        }
+        if (!cameras || cameras.length === 0) throw new Error('Tidak ada kamera yang terdeteksi.');
 
         const backCamera =
-          cameras.find(camera =>
-            /back|rear|environment/i.test(camera.label)
-          ) || cameras[cameras.length - 1];
+          cameras.find(camera => /back|rear|environment/i.test(camera.label)) ||
+          cameras[cameras.length - 1];
 
         await scanner.start(
           { deviceId: { exact: backCamera.id } },
@@ -434,18 +513,13 @@
         isRunning = true;
         el('btnStart').disabled = true;
         el('btnStop').disabled = false;
-        el('scannerStatus').textContent = 'Kamera aktif. Arahkan QR kartu ke kotak pemindai.';
+        el('scannerStatus').textContent = 'Kamera aktif untuk ' + (session.label || 'jadwal aktif') + '.';
       } catch (error) {
         isRunning = false;
         el('btnStart').disabled = false;
         el('btnStop').disabled = true;
         el('scannerStatus').textContent = 'Kamera gagal dibuka.';
-        showResult(
-          'error',
-          '❌',
-          'Kamera tidak dapat dibuka',
-          error && error.message ? error.message : String(error)
-        );
+        showResult('error','❌','Kamera tidak dapat dibuka',error && error.message ? error.message : String(error));
       }
     }
 
@@ -468,12 +542,8 @@
     function onScanSuccess(decodedText) {
       const nomorPorsi = normalizeQrValue(decodedText);
       if (!nomorPorsi) return;
-
       const now = Date.now();
-      if (nomorPorsi === lastCode && now - lastCodeAt < 5000) {
-        return;
-      }
-
+      if (nomorPorsi === lastCode && now - lastCodeAt < 5000) return;
       lastCode = nomorPorsi;
       lastCodeAt = now;
       submitAttendance(nomorPorsi, 'Scan QR');
@@ -481,8 +551,6 @@
 
     function normalizeQrValue(value) {
       const text = String(value || '').trim();
-
-      // Bila QR berisi URL, coba ambil parameter nomorPorsi/porsi.
       try {
         const url = new URL(text);
         return (
@@ -491,50 +559,40 @@
           text
         ).trim();
       } catch (error) {
-        return text;
+        const match = text.match(/\d{7,15}/);
+        return match ? match[0] : text;
       }
     }
 
     function submitManual() {
       const nomorPorsi = el('manualPorsi').value.trim();
       if (!nomorPorsi) {
-        showResult('warning', '⚠️', 'Nomor porsi kosong', 'Masukkan nomor porsi jamaah.');
+        showResult('warning','⚠️','Nomor porsi kosong','Masukkan nomor porsi jamaah.');
         return;
       }
-
-      submitAttendance(nomorPorsi, 'Manual');
+      submitAttendance(nomorPorsi, 'Manual Scanner');
     }
 
-    function submitAttendance(nomorPorsi, metode) {
+    async function submitAttendance(nomorPorsi, metode) {
       if (isSubmitting) return;
-
-      const config = validateConfig();
-      if (!config) return;
+      const session = await ensureActiveSession();
+      if (!session) return;
 
       isSubmitting = true;
       el('scannerStatus').textContent = 'Mencatat kehadiran ' + nomorPorsi + '...';
 
-      const callbackName =
-        '__kbihuCallback_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
+      try {
+        const result = await jsonpRequest({
+          action:'scan',
+          nomorPorsi:nomorPorsi,
+          metode:metode
+        });
 
-      const timeout = setTimeout(function() {
-        cleanupJsonp(callbackName, script);
-        isSubmitting = false;
-        el('scannerStatus').textContent = 'Backend tidak merespons.';
-        showResult(
-          'error',
-          '❌',
-          'Gagal menghubungi backend',
-          'Periksa URL Web App, deployment, koneksi internet, dan token API.'
-        );
-      }, 15000);
+        if (result.sesi) {
+          updateSessionUi(result.sesi, 'Jadwal aktif siap');
+          sessionCheckedAt = Date.now();
+        }
 
-      window[callbackName] = function(response) {
-        clearTimeout(timeout);
-        cleanupJsonp(callbackName, script);
-        isSubmitting = false;
-
-        const result = response || {};
         const success = Boolean(result.sukses);
         const duplicate = Boolean(result.duplikat);
 
@@ -545,56 +603,35 @@
             ? (result.pesan || 'Jamaah sudah tercatat pada sesi ini.')
             : ('Hadir' + (waktu ? ' • ' + waktu : '') + ' • ' + metode);
 
-          showResult(
-            duplicate ? 'warning' : 'success',
-            duplicate ? '⚠️' : '✅',
-            nama,
-            detail
-          );
-
+          showResult(duplicate ? 'warning' : 'success', duplicate ? '⚠️' : '✅', nama, detail);
           addHistory({
-            nama: nama,
-            nomorPorsi: nomorPorsi,
-            waktu: waktu || new Date().toLocaleTimeString('id-ID'),
-            duplicate: duplicate
+            nama:nama,
+            nomorPorsi:nomorPorsi,
+            waktu:waktu || new Date().toLocaleTimeString('id-ID'),
+            duplicate:duplicate,
+            sesi:(result.sesi && result.sesi.label) || (activeSession && activeSession.label) || ''
           });
 
           beep(duplicate ? 420 : 880);
-          navigator.vibrate?.(duplicate ? [120, 80, 120] : 160);
+          navigator.vibrate?.(duplicate ? [120,80,120] : 160);
           el('manualPorsi').value = '';
           el('scannerStatus').textContent = 'Scanner siap membaca kartu berikutnya.';
         } else {
-          showResult(
-            'error',
-            '❌',
-            'Absensi gagal',
-            result.pesan || 'Data tidak dapat disimpan.'
-          );
+          showResult('error','❌','Absensi gagal',result.pesan || 'Data tidak dapat disimpan.');
           beep(240);
-          navigator.vibrate?.([180, 100, 180]);
+          navigator.vibrate?.([180,100,180]);
           el('scannerStatus').textContent = 'Silakan coba kembali.';
+          if (/jadwal absensi aktif/i.test(result.pesan || '')) {
+            activeSession = null;
+            fetchActiveSession(false);
+          }
         }
-      };
-
-      const query = new URLSearchParams({
-        api: 'absensiQr',
-        callback: callbackName,
-        token: config.token,
-        idJadwal: config.idJadwal,
-        nomorPorsi: nomorPorsi,
-        metode: metode
-      });
-
-      const script = document.createElement('script');
-      script.src = config.endpoint.replace(/\/+$/, '') + '?' + query.toString();
-      script.onerror = function() {
-        clearTimeout(timeout);
-        cleanupJsonp(callbackName, script);
+      } catch (error) {
+        el('scannerStatus').textContent = 'Gagal menghubungi backend.';
+        showResult('error','❌','Koneksi gagal',error.message || String(error));
+      } finally {
         isSubmitting = false;
-        el('scannerStatus').textContent = 'Gagal memanggil backend.';
-        showResult('error', '❌', 'Koneksi gagal', 'Backend Apps Script tidak dapat diakses.');
-      };
-      document.body.appendChild(script);
+      }
     }
 
     function cleanupJsonp(callbackName, script) {
@@ -609,10 +646,7 @@
       el('resultIcon').textContent = icon;
       el('resultName').textContent = name;
       el('resultDetail').textContent = detail;
-
-      resultTimer = setTimeout(function() {
-        box.classList.remove('show');
-      }, 7000);
+      resultTimer = setTimeout(() => box.classList.remove('show'), 7000);
     }
 
     function beep(frequency) {
@@ -620,59 +654,50 @@
         const ctx = new (window.AudioContext || window.webkitAudioContext)();
         const oscillator = ctx.createOscillator();
         const gain = ctx.createGain();
-
         oscillator.frequency.value = frequency;
-        gain.gain.setValueAtTime(0.12, ctx.currentTime);
-        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
-
+        gain.gain.value = 0.08;
         oscillator.connect(gain);
         gain.connect(ctx.destination);
         oscillator.start();
-        oscillator.stop(ctx.currentTime + 0.18);
+        oscillator.stop(ctx.currentTime + 0.13);
       } catch (error) {}
     }
 
-    function loadHistory() {
+    function getHistory() {
       return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
     }
 
     function addHistory(item) {
-      const history = loadHistory();
-      history.unshift(item);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, 8)));
+      const rows = getHistory();
+      rows.unshift(item);
+      localStorage.setItem(HISTORY_KEY, JSON.stringify(rows.slice(0,12)));
       renderHistory();
     }
 
     function renderHistory() {
-      const history = loadHistory();
-      const container = el('historyList');
-
-      if (!history.length) {
-        container.innerHTML =
-          '<div class="notice">Belum ada QR yang dipindai pada perangkat ini.</div>';
+      const rows = getHistory();
+      if (!rows.length) {
+        el('historyList').innerHTML = '<div class="notice">Belum ada QR yang dipindai pada perangkat ini.</div>';
         return;
       }
-
-      container.innerHTML = history.map(item => `
+      el('historyList').innerHTML = rows.map(row => `
         <div class="history-item">
           <div>
-            <div class="history-name">${escapeHtml(item.nama || '-')}</div>
-            <div class="history-porsi">${escapeHtml(item.nomorPorsi || '-')}</div>
+            <div class="history-name">${escapeHtml(row.nama || '-')}</div>
+            <div class="history-porsi">${escapeHtml(row.nomorPorsi || '')}${row.sesi ? ' • ' + escapeHtml(row.sesi) : ''}</div>
           </div>
-          <div class="history-time">
-            ${item.duplicate ? 'Sudah tercatat' : escapeHtml(item.waktu || '')}
-          </div>
+          <div class="history-time">${row.duplicate ? 'Sudah hadir' : escapeHtml(row.waktu || '')}</div>
         </div>
       `).join('');
     }
 
     function escapeHtml(value) {
-      return String(value || '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
+      return String(value == null ? '' : value)
+        .replace(/&/g,'&amp;')
+        .replace(/</g,'&lt;')
+        .replace(/>/g,'&gt;')
+        .replace(/"/g,'&quot;')
+        .replace(/'/g,'&#039;');
     }
 
     el('btnStart').addEventListener('click', startScanner);
@@ -681,16 +706,27 @@
     el('manualPorsi').addEventListener('keydown', event => {
       if (event.key === 'Enter') submitManual();
     });
-    el('btnSettings').addEventListener('click', () => {
-      el('settingsPanel').classList.toggle('show');
+    el('btnSettings').addEventListener('click', () => el('settingsPanel').classList.toggle('show'));
+    el('btnSettingsTop').addEventListener('click', () => {
+      el('settingsPanel').classList.add('show');
+      el('settingsPanel').scrollIntoView({behavior:'smooth'});
     });
     el('btnSaveSettings').addEventListener('click', saveConfig);
     el('btnClearSettings').addEventListener('click', clearConfig);
-
-    window.addEventListener('beforeunload', stopScanner);
+    el('btnRefreshSession').addEventListener('click', () => fetchActiveSession(true));
 
     loadConfig();
     renderHistory();
+    fetchActiveSession(false);
+    sessionTimer = setInterval(() => fetchActiveSession(false), 15000);
+
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) fetchActiveSession(false);
+    });
+    window.addEventListener('beforeunload', () => {
+      clearInterval(sessionTimer);
+      if (isRunning) stopScanner();
+    });
   </script>
 </body>
 </html>
