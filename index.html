@@ -312,6 +312,8 @@
   <script>
     const STORAGE_KEY = 'kbihuScannerPermanentConfigV2';
     const HISTORY_KEY = 'kbihuScannerHistoryV3';
+    const PENDING_KEY = 'kbihuScannerPendingV648';
+    const LAST_SESSION_KEY = 'kbihuScannerLastSessionV648';
 
     let scanner = null;
     let isRunning = false;
@@ -362,6 +364,7 @@
       el('endpointInput').value = '';
       el('tokenInput').value = '';
       activeSession = null;
+      localStorage.removeItem(LAST_SESSION_KEY);
       clearScanQueue_();
       updateSessionUi(null, 'Backend belum diatur');
       showResult('warning','⚠️','Pengaturan dihapus','Buka kembali link permanen dari SIM KBIHU atau isi backend dan token.');
@@ -389,6 +392,7 @@
       if (oldKey && newKey && oldKey !== newKey) clearScanQueue_();
       activeSession = session || null;
       if (session) {
+        try { localStorage.setItem(LAST_SESSION_KEY,JSON.stringify({session:session,savedAt:Date.now()})); } catch (_) {}
         const mode = sessionMode_(session);
         const person = mode === 'PENGURUS' ? 'pengurus' : 'jamaah';
         el('sessionEyebrow').textContent = mode === 'PENGURUS' ? 'KEGIATAN PENGURUS AKTIF' : 'JADWAL MANASIK AKTIF';
@@ -457,9 +461,14 @@
         }
         return activeSession;
       } catch (error) {
-        updateSessionUi(null, 'Koneksi backend gagal');
-        if (showMessage) showResult('error','❌','Gagal mengambil sesi',error.message || String(error));
-        return null;
+        if (activeSession) {
+          el('connectionState').textContent = 'Offline — memakai sesi terakhir tersimpan';
+          el('connectionState').style.color = '#b3262e';
+        } else {
+          updateSessionUi(null, 'Koneksi backend gagal');
+        }
+        if (showMessage) showResult('error','❌','Koneksi backend gagal',(error.message || String(error)) + '. Scan dapat disimpan di antrean perangkat dan dikirim saat internet kembali.');
+        return activeSession;
       }
     }
 
@@ -600,8 +609,8 @@
         while (scanQueue.length) {
           const item = scanQueue.shift();
           try {
-            await submitAttendanceNow_(item);
-            recentCodes.set(item.queueKey,Date.now());
+            const saved = await submitAttendanceNow_(item);
+            if (saved) recentCodes.set(item.queueKey,Date.now());
           } finally {
             queuedCodes.delete(item.queueKey);
           }
@@ -610,7 +619,7 @@
       } finally {
         queueProcessing = false;
         cleanupRecentCodes_();
-        if (activeSession) el('scannerStatus').textContent = 'Scanner siap membaca kartu berikutnya.';
+        if (activeSession) { const pending=getPendingScans_().length; el('scannerStatus').textContent = pending ? ('Scanner siap • '+pending+' scan offline menunggu koneksi') : 'Scanner siap membaca kartu berikutnya.'; }
       }
     }
 
@@ -638,12 +647,63 @@
         addHistory({nama:nama,kode:identifier,waktu:waktu || new Date().toLocaleTimeString('id-ID'),duplicate:duplicate,sesi:(result.sesi && result.sesi.label) || (activeSession && activeSession.label) || '',mode:result.mode || item.mode});
         beep(duplicate ? 430 : 830,0.12,0.075);
         navigator.vibrate?.(duplicate ? [100,70,100] : 140);
+        return true;
       } catch (error) {
-        showResult('error','❌','Absensi gagal',error.message || String(error));
+        const message=error.message || String(error);
+        if (isNetworkError_(message)) {
+          storePendingScan_(item);
+          showResult('warning','📥','Tersimpan di antrean offline','Kehadiran belum masuk server. Sistem akan mengirim otomatis saat internet kembali.');
+          el('scannerStatus').textContent='Offline • '+getPendingScans_().length+' scan menunggu dikirim';
+        } else {
+          showResult('error','❌','Absensi gagal',message);
+          if (/belum ada absensi aktif|belum aktif|ditutup|sesi/i.test(message)) await fetchActiveSession(false);
+        }
         beep(240,0.16,0.08);
         navigator.vibrate?.([160,90,160]);
-        if (/belum ada absensi aktif|belum aktif|ditutup|sesi/i.test(error.message || '')) await fetchActiveSession(false);
+        return false;
       }
+    }
+
+    function isNetworkError_(message) {
+      return !navigator.onLine || /backend|internet|network|merespons|tidak dapat diakses|failed to load|timeout/i.test(String(message||''));
+    }
+
+    function getPendingScans_() {
+      try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]'); } catch (_) { return []; }
+    }
+
+    function setPendingScans_(rows) {
+      localStorage.setItem(PENDING_KEY,JSON.stringify((rows||[]).slice(-200)));
+    }
+
+    function storePendingScan_(item) {
+      const rows=getPendingScans_();
+      const key=item.queueKey || (item.mode+'|'+item.sessionId+'|'+item.code);
+      if (!rows.some(r=>(r.queueKey || (r.mode+'|'+r.sessionId+'|'+r.code))===key)) {
+        rows.push(Object.assign({},item,{queueKey:key,queuedAt:Date.now()}));
+        setPendingScans_(rows);
+      }
+    }
+
+    async function flushPendingScans_() {
+      if (!navigator.onLine || queueProcessing) return;
+      const session=await ensureActiveSession(true);
+      if (!session) return;
+      const mode=sessionMode_(session),id=String(session.id||'');
+      const rows=getPendingScans_();
+      const send=rows.filter(r=>r.mode===mode&&String(r.sessionId||'')===id);
+      if (!send.length) return;
+      const keep=rows.filter(r=>!(r.mode===mode&&String(r.sessionId||'')===id));
+      setPendingScans_(keep);
+      send.forEach(item=>{
+        const key=item.queueKey || (item.mode+'|'+item.sessionId+'|'+item.code);
+        if (!queuedCodes.has(key)) {
+          queuedCodes.add(key);
+          scanQueue.push(Object.assign({},item,{queueKey:key,fromPending:true}));
+        }
+      });
+      showResult('warning','🔄','Mengirim antrean offline',send.length+' scan sedang dikirim ulang.');
+      processScanQueue_();
     }
 
     function clearScanQueue_() {
@@ -736,11 +796,20 @@
     el('btnClearSettings').addEventListener('click', clearConfig);
     el('btnRefreshSession').addEventListener('click', () => fetchActiveSession(true));
 
+    try {
+      const savedSession=JSON.parse(localStorage.getItem(LAST_SESSION_KEY)||'null');
+      if(savedSession&&savedSession.session&&Date.now()-Number(savedSession.savedAt||0)<12*60*60*1000){
+        updateSessionUi(savedSession.session,'Memakai sesi terakhir sambil memeriksa backend...');
+      }
+    } catch (_) {}
     loadConfig();
     renderHistory();
-    fetchActiveSession(false);
-    sessionTimer = setInterval(() => { if (!document.hidden && !queueProcessing) fetchActiveSession(false); }, 20000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchActiveSession(false); });
+    fetchActiveSession(false).then(()=>flushPendingScans_());
+    sessionTimer = setInterval(() => { if (!document.hidden && !queueProcessing) { fetchActiveSession(false); if(navigator.onLine) flushPendingScans_(); } }, 20000);
+    window.addEventListener('online',()=>{showResult('warning','🌐','Internet kembali','Mengirim antrean scan yang belum tersimpan.');flushPendingScans_();});
+    window.addEventListener('offline',()=>{showResult('warning','📴','Internet terputus','QR tetap dapat dibaca dan disimpan sementara di perangkat.');});
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) { fetchActiveSession(false); if(navigator.onLine) flushPendingScans_(); } });
     window.addEventListener('beforeunload', () => { clearInterval(sessionTimer); if (isRunning) stopScanner(); });
-  </script>/body>
+  </script>
+</body>
 </html>
