@@ -238,7 +238,7 @@
 
   <main class="wrap">
     <section class="card session">
-      <div class="eyebrow">JADWAL ABSENSI AKTIF</div>
+      <div class="eyebrow" id="sessionEyebrow">SESI ABSENSI AKTIF</div>
       <h2 class="session-title" id="sessionTitle">Memeriksa jadwal aktif...</h2>
       <div class="session-meta">
         <span id="sessionId">ID Jadwal: -</span>
@@ -253,8 +253,8 @@
 
     <section class="card">
       <div id="reader"></div>
-      <p class="scanner-help">
-        Arahkan kamera ke QR pada kartu jamaah. Setelah terbaca, kehadiran dicatat otomatis dan kamera tetap siap memindai kartu berikutnya.
+      <p class="scanner-help" id="scannerHelp">
+        Arahkan kamera ke QR pada kartu peserta. Setelah terbaca, kehadiran disimpan otomatis dan kamera tetap siap memindai kartu berikutnya.
       </p>
 
       <div class="actions">
@@ -263,7 +263,7 @@
       </div>
 
       <div class="manual-row">
-        <input id="manualPorsi" inputmode="numeric" placeholder="Nomor porsi manual">
+        <input id="manualPorsi" autocomplete="off" placeholder="Nomor Porsi / ID Pengurus">
         <button id="btnManual" type="button">Catat Hadir</button>
       </div>
 
@@ -288,7 +288,7 @@
 
       <div id="settingsPanel" class="settings">
         <div class="notice">
-          Pengaturan URL Web App dan token hanya diperlukan sekali pada setiap perangkat. Jadwal manasik diambil otomatis dari jadwal yang diaktifkan oleh admin SIM KBIHU.
+          Pengaturan URL Web App dan token hanya diperlukan sekali pada setiap perangkat. Sesi absensi diambil otomatis dari Jadwal Manasik atau Kegiatan Pengurus yang diaktifkan oleh admin SIM KBIHU.
         </div>
 
         <div class="field">
@@ -311,42 +311,39 @@
 
   <script>
     const STORAGE_KEY = 'kbihuScannerPermanentConfigV2';
-    const HISTORY_KEY = 'kbihuScannerHistoryV2';
+    const HISTORY_KEY = 'kbihuScannerHistoryV3';
 
     let scanner = null;
     let isRunning = false;
-    let isSubmitting = false;
-    let lastCode = '';
-    let lastCodeAt = 0;
-    let resultTimer = null;
+    let queueProcessing = false;
     let activeSession = null;
     let sessionCheckedAt = 0;
     let sessionTimer = null;
+    let resultTimer = null;
+    let audioContext = null;
+    const scanQueue = [];
+    const queuedCodes = new Set();
+    const recentCodes = new Map();
 
     const el = id => document.getElementById(id);
+    const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
     function loadConfig() {
       const params = new URLSearchParams(location.search);
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
+      let saved = {};
+      try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) {}
       const config = {
         endpoint: params.get('endpoint') || saved.endpoint || '',
         token: params.get('token') || saved.token || ''
       };
-
       el('endpointInput').value = config.endpoint;
       el('tokenInput').value = config.token;
-
-      if (params.get('endpoint') || params.get('token')) {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      }
+      if (params.get('endpoint') || params.get('token')) localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
       return config;
     }
 
     function getConfig() {
-      return {
-        endpoint: el('endpointInput').value.trim(),
-        token: el('tokenInput').value.trim()
-      };
+      return {endpoint:el('endpointInput').value.trim(),token:el('tokenInput').value.trim()};
     }
 
     function saveConfig() {
@@ -356,7 +353,7 @@
         return;
       }
       localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
-      showResult('success','✅','Pengaturan tersimpan','Scanner akan selalu mengambil jadwal aktif secara otomatis.');
+      showResult('success','✅','Pengaturan tersimpan','Scanner akan mengikuti sesi yang diaktifkan admin.');
       fetchActiveSession(true);
     }
 
@@ -365,8 +362,9 @@
       el('endpointInput').value = '';
       el('tokenInput').value = '';
       activeSession = null;
+      clearScanQueue_();
       updateSessionUi(null, 'Backend belum diatur');
-      showResult('warning','⚠️','Pengaturan dihapus','Buka kembali link permanen dari SIM KBIHU atau masukkan URL backend dan token.');
+      showResult('warning','⚠️','Pengaturan dihapus','Buka kembali link permanen dari SIM KBIHU atau isi backend dan token.');
     }
 
     function validateConfig(showWarning = true) {
@@ -381,21 +379,37 @@
       return config;
     }
 
+    function sessionMode_(session) {
+      return String(session && (session.mode || session.type) || '').toUpperCase() === 'PENGURUS' ? 'PENGURUS' : 'JAMAAH';
+    }
+
     function updateSessionUi(session, stateText) {
+      const oldKey = activeSession ? sessionMode_(activeSession) + '|' + activeSession.id : '';
+      const newKey = session ? sessionMode_(session) + '|' + session.id : '';
+      if (oldKey && newKey && oldKey !== newKey) clearScanQueue_();
       activeSession = session || null;
       if (session) {
-        el('sessionTitle').textContent = session.label || session.materi || 'Absensi Manasik';
-        el('sessionId').textContent = 'ID Jadwal: ' + (session.id || '-');
+        const mode = sessionMode_(session);
+        const person = mode === 'PENGURUS' ? 'pengurus' : 'jamaah';
+        el('sessionEyebrow').textContent = mode === 'PENGURUS' ? 'KEGIATAN PENGURUS AKTIF' : 'JADWAL MANASIK AKTIF';
+        el('sessionTitle').textContent = session.label || session.materi || session.namaKegiatan || 'Sesi Absensi';
+        el('sessionId').textContent = (mode === 'PENGURUS' ? 'ID Kegiatan: ' : 'ID Jadwal: ') + (session.id || '-');
         const schedule = [session.tanggalId, session.waktu, session.tempat].filter(Boolean).join(' • ');
         el('sessionSchedule').textContent = schedule || 'Tanggal/Waktu: -';
-        el('connectionState').textContent = stateText || 'Jadwal aktif siap';
+        el('connectionState').textContent = stateText || 'Sesi aktif siap';
         el('connectionState').style.color = '#176b45';
+        el('scannerHelp').textContent = 'Arahkan kamera ke QR pada kartu ' + person + '. QR akan ditandai terbaca seketika, lalu disimpan berurutan tanpa menghentikan kamera.';
+        el('manualPorsi').placeholder = mode === 'PENGURUS' ? 'ID Pengurus / kode QR manual' : 'Nomor Porsi manual';
       } else {
-        el('sessionTitle').textContent = 'Belum ada jadwal absensi aktif';
-        el('sessionId').textContent = 'ID Jadwal: -';
-        el('sessionSchedule').textContent = 'Admin perlu mengaktifkan jadwal dari SIM KBIHU';
-        el('connectionState').textContent = stateText || 'Menunggu jadwal aktif';
+        el('sessionEyebrow').textContent = 'SESI ABSENSI AKTIF';
+        el('sessionTitle').textContent = 'Belum ada sesi absensi aktif';
+        el('sessionId').textContent = 'ID Sesi: -';
+        el('sessionSchedule').textContent = 'Admin perlu mengaktifkan Jadwal Manasik atau Kegiatan Pengurus';
+        el('connectionState').textContent = stateText || 'Menunggu sesi aktif';
         el('connectionState').style.color = '#b3262e';
+        el('scannerHelp').textContent = 'Aktifkan sesi absensi dari SIM KBIHU terlebih dahulu.';
+        el('manualPorsi').placeholder = 'Nomor Porsi / ID Pengurus';
+        clearScanQueue_();
         if (isRunning) stopScanner();
       }
     }
@@ -403,30 +417,19 @@
     function jsonpRequest(params, timeoutMs = 15000) {
       return new Promise((resolve, reject) => {
         const config = validateConfig(false);
-        if (!config) {
-          reject(new Error('URL backend atau token belum diatur.'));
-          return;
-        }
-
+        if (!config) return reject(new Error('URL backend atau token belum diatur.'));
         const callbackName = '__kbihuPermanent_' + Date.now() + '_' + Math.floor(Math.random() * 100000);
-        let script = document.createElement('script');
+        const script = document.createElement('script');
         const timeout = setTimeout(() => {
           cleanupJsonp(callbackName, script);
           reject(new Error('Backend tidak merespons.'));
         }, timeoutMs);
-
         window[callbackName] = response => {
           clearTimeout(timeout);
           cleanupJsonp(callbackName, script);
           resolve(response || {});
         };
-
-        const query = new URLSearchParams(Object.assign({
-          api: 'absensiQr',
-          callback: callbackName,
-          token: config.token
-        }, params || {}));
-
+        const query = new URLSearchParams(Object.assign({api:'absensiQr',callback:callbackName,token:config.token},params || {}));
         script.src = config.endpoint.replace(/\/+$/, '') + '?' + query.toString();
         script.onerror = () => {
           clearTimeout(timeout);
@@ -443,77 +446,70 @@
         updateSessionUi(null, 'Backend belum diatur');
         return null;
       }
-
       try {
-        el('connectionState').textContent = 'Memeriksa jadwal aktif...';
+        el('connectionState').textContent = 'Memeriksa sesi aktif...';
         const response = await jsonpRequest({action:'session'});
         sessionCheckedAt = Date.now();
-        if (!response.sukses) throw new Error(response.pesan || 'Gagal mengambil jadwal aktif.');
+        if (!response.sukses) throw new Error(response.pesan || 'Gagal mengambil sesi aktif.');
         updateSessionUi(response.aktif ? response.sesi : null, response.pesan);
         if (showMessage) {
-          showResult(
-            response.aktif ? 'success' : 'warning',
-            response.aktif ? '✅' : '⚠️',
-            response.aktif ? 'Jadwal aktif ditemukan' : 'Belum ada jadwal aktif',
-            response.aktif
-              ? ((response.sesi && response.sesi.label) || 'Scanner siap digunakan.')
-              : 'Aktifkan jadwal dari menu Absensi Manasik di SIM KBIHU.'
-          );
+          showResult(response.aktif ? 'success' : 'warning',response.aktif ? '✅' : '⚠️',response.aktif ? 'Sesi aktif ditemukan' : 'Belum ada sesi aktif',response.aktif ? ((response.sesi && response.sesi.label) || 'Scanner siap digunakan.') : 'Aktifkan Jadwal Manasik atau Kegiatan Pengurus dari SIM KBIHU.');
         }
         return activeSession;
       } catch (error) {
         updateSessionUi(null, 'Koneksi backend gagal');
-        if (showMessage) showResult('error','❌','Gagal mengambil jadwal',error.message || String(error));
+        if (showMessage) showResult('error','❌','Gagal mengambil sesi',error.message || String(error));
         return null;
       }
     }
 
-    async function ensureActiveSession() {
-      if (!activeSession || Date.now() - sessionCheckedAt > 12000) {
-        await fetchActiveSession(false);
-      }
+    async function ensureActiveSession(force = false) {
+      if (force || !activeSession || Date.now() - sessionCheckedAt > 20000) await fetchActiveSession(false);
       if (!activeSession) {
-        showResult('warning','⚠️','Belum ada jadwal aktif','Admin harus mengaktifkan jadwal pertemuan dari SIM KBIHU.');
+        showResult('warning','⚠️','Belum ada sesi aktif','Admin harus mengaktifkan Jadwal Manasik atau Kegiatan Pengurus dari SIM KBIHU.');
         return null;
       }
       return activeSession;
     }
 
+    function scannerQrBox_(width, height) {
+      const edge = Math.max(190, Math.min(360, Math.floor(Math.min(width, height) * 0.78)));
+      return {width:edge,height:edge};
+    }
+
     async function startScanner() {
       if (isRunning) return;
-      const config = validateConfig();
-      if (!config) return;
-      const session = await ensureActiveSession();
+      if (!validateConfig()) return;
+      const session = await ensureActiveSession(true);
       if (!session) return;
-
-      el('scannerStatus').textContent = 'Meminta izin kamera...';
+      el('scannerStatus').textContent = 'Meminta izin kamera belakang...';
       try {
-        scanner = scanner || new Html5Qrcode('reader');
+        if (!scanner) {
+          const options = {verbose:false,experimentalFeatures:{useBarCodeDetectorIfSupported:true}};
+          if (window.Html5QrcodeSupportedFormats) options.formatsToSupport = [Html5QrcodeSupportedFormats.QR_CODE];
+          scanner = new Html5Qrcode('reader', options);
+        }
         const cameras = await Html5Qrcode.getCameras();
-        if (!cameras || cameras.length === 0) throw new Error('Tidak ada kamera yang terdeteksi.');
-
-        const backCamera =
-          cameras.find(camera => /back|rear|environment/i.test(camera.label)) ||
-          cameras[cameras.length - 1];
-
-        await scanner.start(
-          { deviceId: { exact: backCamera.id } },
-          {
-            fps: 10,
-            qrbox: function(viewfinderWidth, viewfinderHeight) {
-              const edge = Math.floor(Math.min(viewfinderWidth, viewfinderHeight) * 0.72);
-              return { width: edge, height: edge };
-            },
-            aspectRatio: 1.0
-          },
-          onScanSuccess,
-          function() {}
-        );
-
+        if (!cameras || !cameras.length) throw new Error('Tidak ada kamera yang terdeteksi.');
+        const backCamera = cameras.find(c => /back|rear|environment|belakang/i.test(c.label)) || cameras[cameras.length - 1];
+        const scanConfig = {
+          fps:20,
+          qrbox:scannerQrBox_,
+          aspectRatio:1.333333,
+          disableFlip:false,
+          experimentalFeatures:{useBarCodeDetectorIfSupported:true}
+        };
+        try {
+          await scanner.start({deviceId:{exact:backCamera.id}},scanConfig,onScanSuccess,() => {});
+        } catch (firstError) {
+          await scanner.start({facingMode:'environment'},scanConfig,onScanSuccess,() => {});
+        }
         isRunning = true;
         el('btnStart').disabled = true;
         el('btnStop').disabled = false;
-        el('scannerStatus').textContent = 'Kamera aktif untuk ' + (session.label || 'jadwal aktif') + '.';
+        el('scannerStatus').textContent = 'Kamera aktif — siap membaca kartu ' + (sessionMode_(session) === 'PENGURUS' ? 'pengurus' : 'jamaah') + '.';
+        await optimizeCameraTrack_();
+        initAudio_();
       } catch (error) {
         isRunning = false;
         el('btnStart').disabled = false;
@@ -523,12 +519,21 @@
       }
     }
 
+    async function optimizeCameraTrack_() {
+      try {
+        const video = el('reader').querySelector('video');
+        const track = video && video.srcObject && video.srcObject.getVideoTracks()[0];
+        if (!track || !track.getCapabilities) return;
+        const caps = track.getCapabilities();
+        const advanced = [];
+        if (Array.isArray(caps.focusMode) && caps.focusMode.includes('continuous')) advanced.push({focusMode:'continuous'});
+        if (advanced.length) await track.applyConstraints({advanced:advanced});
+      } catch (_) {}
+    }
+
     async function stopScanner() {
       try {
-        if (scanner && isRunning) {
-          await scanner.stop();
-          await scanner.clear();
-        }
+        if (scanner && isRunning) await scanner.stop();
       } catch (error) {
         console.warn(error);
       } finally {
@@ -539,103 +544,121 @@
       }
     }
 
-    function onScanSuccess(decodedText) {
-      const nomorPorsi = normalizeQrValue(decodedText);
-      if (!nomorPorsi) return;
-      const now = Date.now();
-      if (nomorPorsi === lastCode && now - lastCodeAt < 5000) return;
-      lastCode = nomorPorsi;
-      lastCodeAt = now;
-      submitAttendance(nomorPorsi, 'Scan QR');
-    }
-
     function normalizeQrValue(value) {
-      const text = String(value || '').trim();
+      let text = String(value || '').trim();
+      if (!text) return '';
       try {
         const url = new URL(text);
-        return (
-          url.searchParams.get('nomorPorsi') ||
-          url.searchParams.get('porsi') ||
-          text
-        ).trim();
-      } catch (error) {
-        const match = text.match(/\d{7,15}/);
-        return match ? match[0] : text;
-      }
+        text = url.searchParams.get('kode') || url.searchParams.get('nomorPorsi') || url.searchParams.get('porsi') || url.searchParams.get('idPengurus') || text;
+      } catch (_) {}
+      text = String(text || '').trim();
+      if (/^PGR\|/i.test(text)) return sessionMode_(activeSession) === 'PENGURUS' ? ('PGR|' + text.slice(4).trim()) : '';
+      if (sessionMode_(activeSession) === 'PENGURUS') return text;
+      const digits = text.replace(/\D/g,'');
+      return digits.length >= 7 ? digits : '';
+    }
+
+    function onScanSuccess(decodedText) {
+      const code = normalizeQrValue(decodedText);
+      if (!code) return;
+      enqueueAttendance_(code,'Scan QR');
     }
 
     function submitManual() {
-      const nomorPorsi = el('manualPorsi').value.trim();
-      if (!nomorPorsi) {
-        showResult('warning','⚠️','Nomor porsi kosong','Masukkan nomor porsi jamaah.');
+      const raw = el('manualPorsi').value.trim();
+      const code = normalizeQrValue(raw);
+      if (!code) {
+        showResult('warning','⚠️','Kode belum valid',sessionMode_(activeSession) === 'PENGURUS' ? 'Masukkan ID Pengurus atau kode QR kartu.' : 'Masukkan Nomor Porsi jamaah.');
         return;
       }
-      submitAttendance(nomorPorsi, 'Manual Scanner');
+      enqueueAttendance_(code,'Manual Scanner');
+      el('manualPorsi').value = '';
     }
 
-    async function submitAttendance(nomorPorsi, metode) {
-      if (isSubmitting) return;
-      const session = await ensureActiveSession();
-      if (!session) return;
+    function enqueueAttendance_(code, metode) {
+      const session = activeSession;
+      if (!session) {
+        ensureActiveSession(true);
+        return;
+      }
+      const queueKey = sessionMode_(session) + '|' + String(session.id || '') + '|' + code;
+      const last = recentCodes.get(queueKey) || 0;
+      if (queuedCodes.has(queueKey) || Date.now() - last < 4500) return;
+      queuedCodes.add(queueKey);
+      scanQueue.push({code:code,metode:metode,queueKey:queueKey,sessionId:session.id,mode:sessionMode_(session)});
+      showResult('warning','✓','QR TERBACA','Sedang menyimpan kehadiran. Kartu berikutnya boleh disiapkan.');
+      el('scannerStatus').textContent = 'QR terbaca • antrean penyimpanan: ' + scanQueue.length;
+      beep(1120,0.055,0.05);
+      navigator.vibrate?.(60);
+      processScanQueue_();
+    }
 
-      isSubmitting = true;
-      el('scannerStatus').textContent = 'Mencatat kehadiran ' + nomorPorsi + '...';
-
+    async function processScanQueue_() {
+      if (queueProcessing) return;
+      queueProcessing = true;
       try {
-        const result = await jsonpRequest({
-          action:'scan',
-          nomorPorsi:nomorPorsi,
-          metode:metode
-        });
+        while (scanQueue.length) {
+          const item = scanQueue.shift();
+          try {
+            await submitAttendanceNow_(item);
+            recentCodes.set(item.queueKey,Date.now());
+          } finally {
+            queuedCodes.delete(item.queueKey);
+          }
+          await sleep(220);
+        }
+      } finally {
+        queueProcessing = false;
+        cleanupRecentCodes_();
+        if (activeSession) el('scannerStatus').textContent = 'Scanner siap membaca kartu berikutnya.';
+      }
+    }
 
+    async function submitAttendanceNow_(item) {
+      const session = await ensureActiveSession(false);
+      if (!session) return;
+      if (sessionMode_(session) !== item.mode || String(session.id || '') !== String(item.sessionId || '')) {
+        showResult('error','❌','Sesi telah berubah','QR tidak disimpan. Silakan pindai kembali pada sesi yang aktif.');
+        return;
+      }
+      el('scannerStatus').textContent = 'Menyimpan kehadiran • sisa antrean: ' + scanQueue.length;
+      try {
+        const result = await jsonpRequest({action:'scan',kode:item.code,metode:item.metode});
         if (result.sesi) {
-          updateSessionUi(result.sesi, 'Jadwal aktif siap');
+          updateSessionUi(result.sesi,'Sesi aktif siap');
           sessionCheckedAt = Date.now();
         }
-
-        const success = Boolean(result.sukses);
+        if (!result.sukses) throw new Error(result.pesan || 'Data tidak dapat disimpan.');
         const duplicate = Boolean(result.duplikat);
-
-        if (success) {
-          const nama = result.namaJamaah || nomorPorsi;
-          const waktu = result.waktu || '';
-          const detail = duplicate
-            ? (result.pesan || 'Jamaah sudah tercatat pada sesi ini.')
-            : ('Hadir' + (waktu ? ' • ' + waktu : '') + ' • ' + metode);
-
-          showResult(duplicate ? 'warning' : 'success', duplicate ? '⚠️' : '✅', nama, detail);
-          addHistory({
-            nama:nama,
-            nomorPorsi:nomorPorsi,
-            waktu:waktu || new Date().toLocaleTimeString('id-ID'),
-            duplicate:duplicate,
-            sesi:(result.sesi && result.sesi.label) || (activeSession && activeSession.label) || ''
-          });
-
-          beep(duplicate ? 420 : 880);
-          navigator.vibrate?.(duplicate ? [120,80,120] : 160);
-          el('manualPorsi').value = '';
-          el('scannerStatus').textContent = 'Scanner siap membaca kartu berikutnya.';
-        } else {
-          showResult('error','❌','Absensi gagal',result.pesan || 'Data tidak dapat disimpan.');
-          beep(240);
-          navigator.vibrate?.([180,100,180]);
-          el('scannerStatus').textContent = 'Silakan coba kembali.';
-          if (/jadwal absensi aktif/i.test(result.pesan || '')) {
-            activeSession = null;
-            fetchActiveSession(false);
-          }
-        }
+        const nama = result.namaPeserta || result.namaPengurus || result.namaJamaah || item.code;
+        const waktu = result.waktu || '';
+        const identifier = result.nomorPorsi || result.idPengurus || item.code;
+        const detail = duplicate ? (result.pesan || 'Sudah tercatat pada sesi ini.') : ('Hadir' + (waktu ? ' • ' + waktu : '') + (result.nominalTransport ? ' • Transport Rp' + Number(result.nominalTransport).toLocaleString('id-ID') : ''));
+        showResult(duplicate ? 'warning' : 'success',duplicate ? '⚠️' : '✅',nama,detail);
+        addHistory({nama:nama,kode:identifier,waktu:waktu || new Date().toLocaleTimeString('id-ID'),duplicate:duplicate,sesi:(result.sesi && result.sesi.label) || (activeSession && activeSession.label) || '',mode:result.mode || item.mode});
+        beep(duplicate ? 430 : 830,0.12,0.075);
+        navigator.vibrate?.(duplicate ? [100,70,100] : 140);
       } catch (error) {
-        el('scannerStatus').textContent = 'Gagal menghubungi backend.';
-        showResult('error','❌','Koneksi gagal',error.message || String(error));
-      } finally {
-        isSubmitting = false;
+        showResult('error','❌','Absensi gagal',error.message || String(error));
+        beep(240,0.16,0.08);
+        navigator.vibrate?.([160,90,160]);
+        if (/belum ada absensi aktif|belum aktif|ditutup|sesi/i.test(error.message || '')) await fetchActiveSession(false);
       }
+    }
+
+    function clearScanQueue_() {
+      scanQueue.length = 0;
+      queuedCodes.clear();
+      queueProcessing = false;
+    }
+
+    function cleanupRecentCodes_() {
+      const limit = Date.now() - 15000;
+      for (const [key,time] of recentCodes.entries()) if (time < limit) recentCodes.delete(key);
     }
 
     function cleanupJsonp(callbackName, script) {
-      try { delete window[callbackName]; } catch (e) { window[callbackName] = undefined; }
+      try { delete window[callbackName]; } catch (_) { window[callbackName] = undefined; }
       if (script && script.parentNode) script.parentNode.removeChild(script);
     }
 
@@ -646,31 +669,39 @@
       el('resultIcon').textContent = icon;
       el('resultName').textContent = name;
       el('resultDetail').textContent = detail;
-      resultTimer = setTimeout(() => box.classList.remove('show'), 7000);
+      resultTimer = setTimeout(() => box.classList.remove('show'), 6500);
     }
 
-    function beep(frequency) {
+    function initAudio_() {
       try {
-        const ctx = new (window.AudioContext || window.webkitAudioContext)();
-        const oscillator = ctx.createOscillator();
-        const gain = ctx.createGain();
+        audioContext = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        if (audioContext.state === 'suspended') audioContext.resume();
+      } catch (_) {}
+    }
+
+    function beep(frequency, duration = 0.12, volume = 0.07) {
+      try {
+        initAudio_();
+        if (!audioContext) return;
+        const oscillator = audioContext.createOscillator();
+        const gain = audioContext.createGain();
         oscillator.frequency.value = frequency;
-        gain.gain.value = 0.08;
+        gain.gain.value = volume;
         oscillator.connect(gain);
-        gain.connect(ctx.destination);
+        gain.connect(audioContext.destination);
         oscillator.start();
-        oscillator.stop(ctx.currentTime + 0.13);
-      } catch (error) {}
+        oscillator.stop(audioContext.currentTime + duration);
+      } catch (_) {}
     }
 
     function getHistory() {
-      return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+      try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch (_) { return []; }
     }
 
     function addHistory(item) {
       const rows = getHistory();
       rows.unshift(item);
-      localStorage.setItem(HISTORY_KEY, JSON.stringify(rows.slice(0,12)));
+      localStorage.setItem(HISTORY_KEY,JSON.stringify(rows.slice(0,15)));
       renderHistory();
     }
 
@@ -684,7 +715,7 @@
         <div class="history-item">
           <div>
             <div class="history-name">${escapeHtml(row.nama || '-')}</div>
-            <div class="history-porsi">${escapeHtml(row.nomorPorsi || '')}${row.sesi ? ' • ' + escapeHtml(row.sesi) : ''}</div>
+            <div class="history-porsi">${escapeHtml(row.kode || '')}${row.sesi ? ' • ' + escapeHtml(row.sesi) : ''}</div>
           </div>
           <div class="history-time">${row.duplicate ? 'Sudah hadir' : escapeHtml(row.waktu || '')}</div>
         </div>
@@ -692,25 +723,15 @@
     }
 
     function escapeHtml(value) {
-      return String(value == null ? '' : value)
-        .replace(/&/g,'&amp;')
-        .replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;')
-        .replace(/"/g,'&quot;')
-        .replace(/'/g,'&#039;');
+      return String(value == null ? '' : value).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
     }
 
     el('btnStart').addEventListener('click', startScanner);
     el('btnStop').addEventListener('click', stopScanner);
     el('btnManual').addEventListener('click', submitManual);
-    el('manualPorsi').addEventListener('keydown', event => {
-      if (event.key === 'Enter') submitManual();
-    });
+    el('manualPorsi').addEventListener('keydown', event => { if (event.key === 'Enter') submitManual(); });
     el('btnSettings').addEventListener('click', () => el('settingsPanel').classList.toggle('show'));
-    el('btnSettingsTop').addEventListener('click', () => {
-      el('settingsPanel').classList.add('show');
-      el('settingsPanel').scrollIntoView({behavior:'smooth'});
-    });
+    el('btnSettingsTop').addEventListener('click', () => { el('settingsPanel').classList.add('show'); el('settingsPanel').scrollIntoView({behavior:'smooth'}); });
     el('btnSaveSettings').addEventListener('click', saveConfig);
     el('btnClearSettings').addEventListener('click', clearConfig);
     el('btnRefreshSession').addEventListener('click', () => fetchActiveSession(true));
@@ -718,15 +739,8 @@
     loadConfig();
     renderHistory();
     fetchActiveSession(false);
-    sessionTimer = setInterval(() => fetchActiveSession(false), 15000);
-
-    document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) fetchActiveSession(false);
-    });
-    window.addEventListener('beforeunload', () => {
-      clearInterval(sessionTimer);
-      if (isRunning) stopScanner();
-    });
-  </script>
-</body>
+    sessionTimer = setInterval(() => { if (!document.hidden && !queueProcessing) fetchActiveSession(false); }, 20000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) fetchActiveSession(false); });
+    window.addEventListener('beforeunload', () => { clearInterval(sessionTimer); if (isRunning) stopScanner(); });
+  </script>/body>
 </html>
