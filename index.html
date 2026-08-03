@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#8c082d">
-  <title>Scanner QR Absensi KBIHU Al Amanah</title>
+  <title>AMANAH SMART | Scanner QR Absensi</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root {
@@ -232,8 +232,8 @@
 <body>
   <header class="header">
     <img class="header-logo" src="logo-kbihu.png" alt="Logo KBIHU Al Amanah">
-    <h1>Scanner QR Absensi</h1>
-    <p>KBIHU Al Amanah Bojonegoro</p>
+    <h1>AMANAH SMART</h1>
+    <p>Scanner QR Absensi • KBIHU AL AMANAH BOJONEGORO</p>
   </header>
 
   <main class="wrap">
@@ -288,7 +288,7 @@
 
       <div id="settingsPanel" class="settings">
         <div class="notice">
-          Pengaturan URL Web App dan token hanya diperlukan sekali pada setiap perangkat. Sesi absensi diambil otomatis dari Jadwal Manasik atau Kegiatan Pengurus yang diaktifkan oleh admin SIM KBIHU.
+          Pengaturan URL Web App dan token hanya diperlukan sekali pada setiap perangkat. Sesi absensi diambil otomatis dari Jadwal Manasik atau Kegiatan Pengurus yang diaktifkan oleh admin AMANAH SMART.
         </div>
 
         <div class="field">
@@ -367,7 +367,7 @@
       localStorage.removeItem(LAST_SESSION_KEY);
       clearScanQueue_();
       updateSessionUi(null, 'Backend belum diatur');
-      showResult('warning','⚠️','Pengaturan dihapus','Buka kembali link permanen dari SIM KBIHU atau isi backend dan token.');
+      showResult('warning','⚠️','Pengaturan dihapus','Buka kembali link permanen dari AMANAH SMART atau isi backend dan token.');
     }
 
     function validateConfig(showWarning = true) {
@@ -411,7 +411,7 @@
         el('sessionSchedule').textContent = 'Admin perlu mengaktifkan Jadwal Manasik atau Kegiatan Pengurus';
         el('connectionState').textContent = stateText || 'Menunggu sesi aktif';
         el('connectionState').style.color = '#b3262e';
-        el('scannerHelp').textContent = 'Aktifkan sesi absensi dari SIM KBIHU terlebih dahulu.';
+        el('scannerHelp').textContent = 'Aktifkan sesi absensi dari AMANAH SMART terlebih dahulu.';
         el('manualPorsi').placeholder = 'Nomor Porsi / ID Pengurus';
         clearScanQueue_();
         if (isRunning) stopScanner();
@@ -457,7 +457,7 @@
         if (!response.sukses) throw new Error(response.pesan || 'Gagal mengambil sesi aktif.');
         updateSessionUi(response.aktif ? response.sesi : null, response.pesan);
         if (showMessage) {
-          showResult(response.aktif ? 'success' : 'warning',response.aktif ? '✅' : '⚠️',response.aktif ? 'Sesi aktif ditemukan' : 'Belum ada sesi aktif',response.aktif ? ((response.sesi && response.sesi.label) || 'Scanner siap digunakan.') : 'Aktifkan Jadwal Manasik atau Kegiatan Pengurus dari SIM KBIHU.');
+          showResult(response.aktif ? 'success' : 'warning',response.aktif ? '✅' : '⚠️',response.aktif ? 'Sesi aktif ditemukan' : 'Belum ada sesi aktif',response.aktif ? ((response.sesi && response.sesi.label) || 'Scanner siap digunakan.') : 'Aktifkan Jadwal Manasik atau Kegiatan Pengurus dari AMANAH SMART.');
         }
         return activeSession;
       } catch (error) {
@@ -475,7 +475,7 @@
     async function ensureActiveSession(force = false) {
       if (force || !activeSession || Date.now() - sessionCheckedAt > 20000) await fetchActiveSession(false);
       if (!activeSession) {
-        showResult('warning','⚠️','Belum ada sesi aktif','Admin harus mengaktifkan Jadwal Manasik atau Kegiatan Pengurus dari SIM KBIHU.');
+        showResult('warning','⚠️','Belum ada sesi aktif','Admin harus mengaktifkan Jadwal Manasik atau Kegiatan Pengurus dari AMANAH SMART.');
         return null;
       }
       return activeSession;
