@@ -91,14 +91,52 @@
     loadBootstrap(); setInterval(loadBootstrap,30000);
     if(localStorage.getItem(STORAGE_PETUGAS))showPetugasLoggedIn(true);
   }
-  function jsonp(action,params={}){
+  const BRIDGE_CHANNEL='AMANAH_SCANNER_BRIDGE_V2';
+  let bridgeFrame=null, bridgeReady=false, bridgePromise=null;
+  const bridgePending=new Map();
+
+  window.addEventListener('message',(event)=>{
+    const msg=event.data||{};
+    if(msg.channel!==BRIDGE_CHANNEL)return;
+    if(msg.type==='ready'){
+      bridgeReady=true;
+      if(bridgePromise&&bridgePromise.resolve)bridgePromise.resolve();
+      return;
+    }
+    if(!msg.requestId||!bridgePending.has(msg.requestId))return;
+    const item=bridgePending.get(msg.requestId);bridgePending.delete(msg.requestId);clearTimeout(item.timer);
+    const payload=msg.payload||{};
+    if(payload.ok)item.resolve(payload.result);
+    else item.reject(new Error(payload.error||'Gagal menghubungi server.'));
+  });
+
+  function ensureBridge(){
+    if(bridgeReady&&bridgeFrame)return Promise.resolve();
+    if(bridgePromise)return bridgePromise.promise;
+    let resolveReady,rejectReady;
+    const promise=new Promise((resolve,reject)=>{resolveReady=resolve;rejectReady=reject;});
+    bridgePromise={promise:promise,resolve:resolveReady,reject:rejectReady};
+    try{
+      const u=new URL(apiEndpoint);u.searchParams.set('page','scannerBridge');u.searchParams.set('token',apiToken);
+      bridgeFrame=document.createElement('iframe');
+      bridgeFrame.setAttribute('aria-hidden','true');
+      bridgeFrame.tabIndex=-1;
+      bridgeFrame.style.cssText='position:fixed;width:1px;height:1px;right:-20px;bottom:-20px;border:0;opacity:0;pointer-events:none';
+      bridgeFrame.src=u.toString();
+      bridgeFrame.onerror=()=>{if(!bridgeReady)rejectReady(new Error('Jembatan server gagal dimuat.'));};
+      document.body.appendChild(bridgeFrame);
+      setTimeout(()=>{if(!bridgeReady)rejectReady(new Error('Server tidak merespons. Buka kembali scanner melalui AMANAH SMART.'));},20000);
+    }catch(e){rejectReady(e);}
+    return promise;
+  }
+
+  async function jsonp(action,params={}){
+    await ensureBridge();
     return new Promise((resolve,reject)=>{
-      const cb='amanahCb_'+Date.now()+'_'+Math.random().toString(36).slice(2); const script=document.createElement('script');
-      const timer=setTimeout(()=>{cleanup();reject(new Error('Server tidak merespons. Periksa koneksi internet.'));},20000);
-      function cleanup(){clearTimeout(timer);delete window[cb];script.remove();}
-      window[cb]=(data)=>{cleanup();resolve(data);};
-      const u=new URL(apiEndpoint);u.searchParams.set('api','absensiQr');u.searchParams.set('action',action);u.searchParams.set('callback',cb);u.searchParams.set('token',apiToken);
-      Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null)u.searchParams.set(k,v);});script.src=u.toString();script.onerror=()=>{cleanup();reject(new Error('Gagal terhubung ke server.'));};document.body.appendChild(script);
+      const requestId='req_'+Date.now()+'_'+Math.random().toString(36).slice(2);
+      const timer=setTimeout(()=>{bridgePending.delete(requestId);reject(new Error('Server tidak merespons. Periksa koneksi internet.'));},20000);
+      bridgePending.set(requestId,{resolve,reject,timer});
+      bridgeFrame.contentWindow.postMessage({channel:BRIDGE_CHANNEL,type:'request',requestId,action,params},'*');
     });
   }
   function unwrap(r){if(!r||!(r.success||r.sukses))throw new Error((r&& (r.message||r.pesan))||'Proses gagal.');return r.data||{};}
