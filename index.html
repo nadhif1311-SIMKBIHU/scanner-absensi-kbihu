@@ -67,17 +67,27 @@
   <footer class="footer">AMANAH SMART • Sistem Manajemen Administrasi dan Pelayanan Terpadu</footer>
 </div>
 <script>
-  const STORAGE_ENDPOINT='amanah_scanner_endpoint_v712c';
+  const STORAGE_CONFIG='amanah_scanner_config_stabil_v712d';
   const STORAGE_CLIENT='amanah_scanner_client_v712c';
   const STORAGE_PETUGAS='amanah_petugas_session_v712c';
-  let apiEndpoint=''; let qr=null; let cameraRunning=false; let scanBusy=false; let lastCode=''; let lastAt=0; let bootstrap=null;
+  let apiEndpoint=''; let apiToken=''; let qr=null; let cameraRunning=false; let scanBusy=false; let lastCode=''; let lastAt=0; let bootstrap=null;
 
   function init(){
-    const q=new URLSearchParams(location.search); const supplied=q.get('endpoint');
-    if(supplied){localStorage.setItem(STORAGE_ENDPOINT,supplied);history.replaceState({},document.title,location.pathname);}
-    apiEndpoint=localStorage.getItem(STORAGE_ENDPOINT)||'';
+    const q=new URLSearchParams(location.search);
+    let saved={};
+    try{saved=JSON.parse(localStorage.getItem(STORAGE_CONFIG)||'{}');}catch(_){saved={};}
+    const suppliedEndpoint=q.get('endpoint')||'';
+    const suppliedToken=q.get('token')||'';
+    if(suppliedEndpoint&&suppliedToken){
+      saved={endpoint:suppliedEndpoint,token:suppliedToken};
+      localStorage.setItem(STORAGE_CONFIG,JSON.stringify(saved));
+      history.replaceState({},document.title,location.pathname);
+    }
+    apiEndpoint=saved.endpoint||'';
+    apiToken=saved.token||'';
     if(!localStorage.getItem(STORAGE_CLIENT))localStorage.setItem(STORAGE_CLIENT,'device-'+Math.random().toString(36).slice(2)+Date.now().toString(36));
-    if(!apiEndpoint){setSession(null,'Alamat server belum tersambung. Buka scanner dari tombol Buka Scanner Permanen pada AMANAH SMART.');showStatus('error','Scanner Belum Terhubung','Alamat server belum tersedia.');return;}
+    showScan();
+    if(!apiEndpoint||!apiToken){setSession(null,'Alamat server belum tersambung. Buka scanner dari tombol Buka Scanner Permanen pada AMANAH SMART.');showStatus('error','Scanner Belum Terhubung','Alamat server belum tersedia.');return;}
     loadBootstrap(); setInterval(loadBootstrap,30000);
     if(localStorage.getItem(STORAGE_PETUGAS))showPetugasLoggedIn(true);
   }
@@ -87,7 +97,7 @@
       const timer=setTimeout(()=>{cleanup();reject(new Error('Server tidak merespons. Periksa koneksi internet.'));},20000);
       function cleanup(){clearTimeout(timer);delete window[cb];script.remove();}
       window[cb]=(data)=>{cleanup();resolve(data);};
-      const u=new URL(apiEndpoint);u.searchParams.set('api','absensiQr');u.searchParams.set('action',action);u.searchParams.set('callback',cb);
+      const u=new URL(apiEndpoint);u.searchParams.set('api','absensiQr');u.searchParams.set('action',action);u.searchParams.set('callback',cb);u.searchParams.set('token',apiToken);
       Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null)u.searchParams.set(k,v);});script.src=u.toString();script.onerror=()=>{cleanup();reject(new Error('Gagal terhubung ke server.'));};document.body.appendChild(script);
     });
   }
