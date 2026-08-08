@@ -31,30 +31,61 @@
 </div>
 <script>
 'use strict';
-const STORE_CONFIG='amanah_scanner_config_v720';
-const STORE_CLIENT='amanah_scanner_client_v720';
-const STORE_PETUGAS='amanah_petugas_session_v720';
-const STORE_QUEUE='amanah_scanner_queue_v720';
+const STORE_CONFIG='amanah_scanner_config_v726';
+const STORE_CLIENT='amanah_scanner_client_v726';
+const STORE_PETUGAS='amanah_petugas_session_v726';
+const STORE_QUEUE='amanah_scanner_queue_v726';
 let endpoint='',apiToken='',qr=null,cameraRunning=false,scanBusy=false,lastCode='',lastAt=0,bootstrap=null;
 
 function byId(id){return document.getElementById(id);}function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}function attr(v){return esc(v).replace(/`/g,'&#96;');}
 function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'')||fallback;}catch(_){return fallback;}}
 function writeJson(key,value){localStorage.setItem(key,JSON.stringify(value));}
+function normalizeEndpoint(v){
+  let x=String(v||'').trim();
+  if(!x)return '';
+  x=x.replace(/\/dev(?=\?|$)/,'/exec');
+  return x;
+}
 function init(){
   const q=new URLSearchParams(location.search),saved=readJson(STORE_CONFIG,{});
-  const suppliedEndpoint=q.get('endpoint')||q.get('api')||'';const suppliedToken=q.get('token')||q.get('key')||'';
-  if(suppliedEndpoint&&suppliedToken){saved.endpoint=suppliedEndpoint;saved.token=suppliedToken;saved.savedAt=Date.now();writeJson(STORE_CONFIG,saved);history.replaceState({},document.title,location.pathname);}
-  endpoint=saved.endpoint||'';apiToken=saved.token||'';
+  const suppliedEndpoint=normalizeEndpoint(q.get('endpoint')||q.get('api')||'');
+  const suppliedToken=q.get('token')||q.get('key')||'';
+  if(suppliedEndpoint&&suppliedToken){
+    saved.endpoint=suppliedEndpoint;saved.token=suppliedToken;saved.savedAt=Date.now();saved.version='7.2.6';
+    writeJson(STORE_CONFIG,saved);
+    history.replaceState({},document.title,location.pathname);
+  }
+  endpoint=normalizeEndpoint(saved.endpoint||'');apiToken=saved.token||'';
   if(!localStorage.getItem(STORE_CLIENT))localStorage.setItem(STORE_CLIENT,'device-'+Math.random().toString(36).slice(2)+Date.now().toString(36));
   bind();showScan();refreshQueueNote();
-  if(!endpoint||!apiToken){setSession(null,'Alamat server belum tersambung. Buka scanner melalui tombol Buka Scanner Permanen pada AMANAH SMART.');showStatus('error','Scanner Belum Terhubung','Koneksi server belum tersimpan pada perangkat ini.');return;}
-  loadBootstrap();setInterval(loadBootstrap,30000);flushQueue();window.addEventListener('online',flushQueue);
+  if(!endpoint||!apiToken){
+    setSession(null,'Koneksi server belum tersimpan. Buka halaman ini sekali melalui tombol Buka Scanner Permanen di AMANAH SMART.');
+    showStatus('error','Scanner Belum Terhubung','Buka Scanner Permanen dari AMANAH SMART satu kali untuk menyambungkan perangkat ini.');
+    return;
+  }
+  connectAndLoad();
+  setInterval(loadBootstrap,15000);
+  window.addEventListener('online',()=>{connectAndLoad();flushQueue();});
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadBootstrap();});
+  flushQueue();
   if(localStorage.getItem(STORE_PETUGAS))showPetugasLoggedIn(true);
 }
 function bind(){byId('tabScan').onclick=showScan;byId('tabPetugas').onclick=showPetugas;byId('startCameraBtn').onclick=startCamera;byId('stopCameraBtn').onclick=stopCamera;byId('loginPetugasBtn').onclick=loginPetugas;byId('logoutPetugasBtn').onclick=logoutPetugas;byId('searchPetugasBtn').onclick=searchPetugas;byId('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')loginPetugas();});byId('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')searchPetugas();});}
-function jsonp(action,params={}){return new Promise((resolve,reject)=>{if(!endpoint||!apiToken){reject(new Error('Scanner belum terhubung ke server.'));return;}const cb='amanahCb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');let done=false;const cleanup=()=>{delete window[cb];script.remove();};const timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error('Server tidak merespons. Periksa koneksi internet.'));},20000);window[cb]=data=>{if(done)return;done=true;clearTimeout(timer);cleanup();resolve(data);};script.onerror=()=>{if(done)return;done=true;clearTimeout(timer);cleanup();reject(new Error('Gagal terhubung ke server.'));};const url=new URL(endpoint);url.searchParams.set('api','absensiQr');url.searchParams.set('action',action);url.searchParams.set('token',apiToken);url.searchParams.set('callback',cb);Object.keys(params).forEach(k=>{if(params[k]!==undefined&&params[k]!==null)url.searchParams.set(k,String(params[k]));});script.src=url.toString();document.head.appendChild(script);});}
+function jsonp(action,params={}){return new Promise((resolve,reject)=>{if(!endpoint||!apiToken){reject(new Error('Scanner belum terhubung ke server.'));return;}const cb='amanahCb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');let done=false;const cleanup=()=>{delete window[cb];script.remove();};const timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error('Server tidak merespons. Periksa deployment Web App dan koneksi internet.'));},12000);window[cb]=data=>{if(done)return;done=true;clearTimeout(timer);cleanup();resolve(data);};script.onerror=()=>{if(done)return;done=true;clearTimeout(timer);cleanup();reject(new Error('Gagal mengakses Web App AMANAH SMART. Buka kembali scanner melalui tombol Buka Scanner Permanen.'));};const url=new URL(endpoint);url.searchParams.set('api','absensiQr');url.searchParams.set('action',action);url.searchParams.set('token',apiToken);url.searchParams.set('callback',cb);url.searchParams.set('_',Date.now());Object.keys(params).forEach(k=>{if(params[k]!==undefined&&params[k]!==null)url.searchParams.set(k,String(params[k]));});script.src=url.toString();document.head.appendChild(script);});}
 function unwrap(r){if(!r||!(r.success||r.sukses))throw new Error((r&&(r.message||r.pesan))||'Proses gagal.');return r.data||{};}
-async function loadBootstrap(){try{bootstrap=unwrap(await jsonp('bootstrap'));setSession(bootstrap.session);byId('tabPetugas').disabled=!bootstrap.petugasAvailable;}catch(e){setSession(null,e.message);}}
+async function jsonpRetry(action,params={},tries=2){let last;for(let i=0;i<tries;i++){try{return await jsonp(action,params);}catch(e){last=e;if(i<tries-1)await new Promise(r=>setTimeout(r,900));}}throw last;}
+async function connectAndLoad(){
+  try{
+    const ping=unwrap(await jsonpRetry('ping',{},2));
+    if(!ping.connected)throw new Error('Server scanner belum siap.');
+    await loadBootstrap();
+    showStatus('info','Scanner Terhubung','Koneksi ke AMANAH SMART aktif. Jadwal akan diperbarui otomatis.');
+  }catch(e){
+    setSession(null,e.message);
+    showStatus('error','Koneksi Scanner Gagal',e.message);
+  }
+}
+async function loadBootstrap(){try{bootstrap=unwrap(await jsonpRetry('bootstrap',{},2));setSession(bootstrap.session);byId('tabPetugas').disabled=!bootstrap.petugasAvailable;return true;}catch(e){setSession(null,e.message);return false;}}
 function setSession(s,error){const b=byId('sessionBox');if(s){b.className='session active';b.innerHTML=`<h2>${esc(s.label||'Kegiatan Aktif')}</h2><p>${esc(s.tanggalId||'')} ${esc(s.waktu||'')} • ${esc(s.tempat||'')}</p><p>Tahun Operasional ${esc(s.tahunOperasional||'')}</p>`;}else{b.className='session inactive';b.innerHTML=`<h2>Belum ada kegiatan aktif</h2><p>${esc(error||'Admin perlu mengaktifkan jadwal manasik terlebih dahulu.')}</p>`;}}
 function showScan(){byId('scanPanel').classList.remove('hidden');byId('petugasPanel').classList.add('hidden');byId('tabScan').classList.add('active');byId('tabPetugas').classList.remove('active');}
 function showPetugas(){stopCamera();byId('scanPanel').classList.add('hidden');byId('petugasPanel').classList.remove('hidden');byId('tabPetugas').classList.add('active');byId('tabScan').classList.remove('active');}
