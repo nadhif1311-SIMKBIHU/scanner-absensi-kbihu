@@ -4,110 +4,145 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
   <meta name="theme-color" content="#6d0f2b">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
   <title>Scanner Permanen AMANAH SMART</title>
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
   <style>
     :root{--maroon:#71122f;--maroon2:#4f0c21;--gold:#d3a83f;--cream:#fbf6ea;--text:#241b1e;--muted:#756b6f;--line:#eadde1;--green:#176b45;--red:#a51f36}
-    *{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:linear-gradient(180deg,#fff 0,#fbf7ed 100%);min-height:100vh}.wrap{width:min(920px,100%);margin:auto;padding:18px}.brand{display:flex;align-items:center;gap:14px;padding:16px 18px;background:linear-gradient(135deg,var(--maroon2),var(--maroon));color:#fff;border-radius:18px;box-shadow:0 14px 34px #5b102333}.logo{width:58px;height:58px;border-radius:14px;background:#fff;padding:5px;object-fit:contain}.brand h1{font-size:22px;margin:0}.brand p{margin:4px 0 0;font-size:13px;opacity:.86}.session,.card{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 28px #5b102312}.session.active{border-left:6px solid var(--green)}.session.inactive{border-left:6px solid var(--gold)}.session h2{font-size:20px;margin:0 0 8px}.session p{margin:4px 0;color:var(--muted)}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.tab{border:1px solid #d8c8cd;background:#fff;color:var(--maroon);font-weight:800;font-size:17px;border-radius:14px;padding:15px;cursor:pointer}.tab.active{background:var(--maroon);color:#fff;border-color:var(--maroon)}.reader-shell{position:relative;background:#151114;border-radius:18px;min-height:360px;overflow:hidden;display:flex;align-items:center;justify-content:center}.reader-shell #reader{width:100%}.reader-shell video{width:100%!important;max-height:62vh;object-fit:cover}.placeholder{position:absolute;inset:0;display:grid;place-content:center;color:#fff;text-align:center;padding:30px;pointer-events:none}.placeholder b{display:block;font-size:20px;margin-bottom:8px}.placeholder span{color:#d8ced2}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:0;border-radius:13px;padding:14px 18px;font-size:16px;font-weight:800;cursor:pointer}.primary{background:var(--maroon);color:#fff}.secondary{background:var(--cream);color:var(--maroon);border:1px solid #e1c579}.danger{background:#fbe7ea;color:var(--red)}.btn:disabled{opacity:.45;cursor:not-allowed}.status{display:none;margin-top:16px;padding:18px;border-radius:16px;text-align:center}.status.show{display:block}.status.success{background:#e6f6ed;border:1px solid #a9d8bd;color:#155a3a}.status.error{background:#fff0f2;border:1px solid #f0b4bf;color:#9d1932}.status.info{background:#fff8e7;border:1px solid #e6ca7c;color:#73530a}.status h3{margin:0 0 6px}.status p{margin:0}.hidden{display:none!important}.form{display:grid;gap:12px}.form input{width:100%;padding:14px;border:1px solid #d9ccd0;border-radius:12px;font-size:16px}.help{font-size:13px;color:var(--muted)}.results{margin-top:14px;display:grid;gap:10px}.result{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:13px;padding:13px}.result strong{display:block}.result small{display:block;color:var(--muted);margin-top:4px}.result button{white-space:nowrap}.queue-note{display:none;margin-top:10px;padding:10px 12px;border-radius:10px;background:#fff8e7;color:#73530a;font-size:12px}.queue-note.show{display:block}.footer{text-align:center;color:#8a7d82;font-size:12px;padding:22px 0}
+    *{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;color:var(--text);background:linear-gradient(180deg,#fff 0,#fbf7ed 100%);min-height:100vh}
+    .wrap{width:min(920px,100%);margin:auto;padding:18px}.brand{display:flex;align-items:center;gap:14px;padding:16px 18px;background:linear-gradient(135deg,var(--maroon2),var(--maroon));color:#fff;border-radius:18px;box-shadow:0 14px 34px #5b102333}
+    .logo{width:58px;height:58px;border-radius:14px;background:#fff;padding:5px;object-fit:contain}.brand h1{font-size:22px;margin:0}.brand p{margin:4px 0 0;font-size:13px;opacity:.86}
+    .session,.card{margin-top:16px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 10px 28px #5b102312}.session.active{border-left:6px solid var(--green)}.session.inactive{border-left:6px solid var(--gold)}
+    .session h2{font-size:20px;margin:0 0 8px}.session p{margin:4px 0;color:var(--muted)}.tabs{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px}.tab{border:1px solid #d8c8cd;background:#fff;color:var(--maroon);font-weight:800;font-size:17px;border-radius:14px;padding:15px;cursor:pointer}.tab.active{background:var(--maroon);color:#fff;border-color:var(--maroon)}
+    .reader-shell{position:relative;background:#151114;border-radius:18px;min-height:360px;overflow:hidden;display:flex;align-items:center;justify-content:center}.reader-shell #reader{width:100%}.reader-shell video{width:100%!important;max-height:62vh;object-fit:cover}.placeholder{color:#fff;text-align:center;padding:30px}.placeholder b{display:block;font-size:20px;margin-bottom:8px}.placeholder span{color:#d8ced2}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}.btn{border:0;border-radius:13px;padding:14px 18px;font-size:16px;font-weight:800;cursor:pointer}.primary{background:var(--maroon);color:#fff}.secondary{background:var(--cream);color:var(--maroon);border:1px solid #e1c579}.danger{background:#fbe7ea;color:var(--red)}.btn:disabled{opacity:.45;cursor:not-allowed}
+    .status{display:none;margin-top:16px;padding:18px;border-radius:16px;text-align:center}.status.show{display:block}.status.success{background:#e6f6ed;border:1px solid #a9d8bd;color:#155a3a}.status.error{background:#fff0f2;border:1px solid #f0b4bf;color:#9d1932}.status.info{background:#fff8e7;border:1px solid #e6ca7c;color:#73530a}.status h3{margin:0 0 6px}.status p{margin:0}
+    .hidden{display:none!important}.form{display:grid;gap:12px}.form input{width:100%;padding:14px;border:1px solid #d9ccd0;border-radius:12px;font-size:16px}.help{font-size:13px;color:var(--muted)}
+    .results{margin-top:14px;display:grid;gap:10px}.result{display:flex;align-items:center;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:13px;padding:13px}.result strong{display:block}.result small{display:block;color:var(--muted);margin-top:4px}.result button{white-space:nowrap}.footer{text-align:center;color:#8a7d82;font-size:12px;padding:22px 0}
     @media(max-width:600px){.wrap{padding:10px}.brand{padding:13px}.logo{width:48px;height:48px}.brand h1{font-size:18px}.session,.card{padding:14px}.reader-shell{min-height:300px}.tabs{gap:8px}.tab{font-size:15px;padding:13px 8px}.btn{width:100%}.result{align-items:flex-start;flex-direction:column}.result button{width:100%}}
   </style>
 </head>
 <body>
 <div class="wrap">
-  <header class="brand"><img class="logo" src="https://raw.githubusercontent.com/nadhif1311-SIMKBIHU/scanner-absensi-kbihu/main/logo-kbihu.png" alt="Logo KBIHU"><div><h1>AMANAH SMART</h1><p>Scanner Permanen KBIHU AL AMANAH BOJONEGORO</p></div></header>
+  <header class="brand">
+    <img class="logo" src="https://raw.githubusercontent.com/nadhif1311-SIMKBIHU/scanner-absensi-kbihu/main/logo-kbihu.png" alt="Logo KBIHU">
+    <div><h1>AMANAH SMART</h1><p>Scanner Permanen KBIHU AL AMANAH BOJONEGORO</p></div>
+  </header>
+
   <section id="sessionBox" class="session inactive"><h2>Menghubungkan ke server…</h2><p>Mohon tunggu.</p></section>
-  <div class="tabs"><button id="tabScan" class="tab active" type="button">Pindai QR</button><button id="tabPetugas" class="tab" type="button">Mode Petugas</button></div>
+
+  <div class="tabs">
+    <button id="tabScan" class="tab active" onclick="showScan()">Pindai QR</button>
+    <button id="tabPetugas" class="tab" onclick="showPetugas()">Mode Petugas</button>
+  </div>
+
   <section id="scanPanel" class="card">
-    <div class="reader-shell"><div id="reader"></div><div id="cameraPlaceholder" class="placeholder"><div><b>Kamera belum dinyalakan</b><span>Tekan Nyalakan Kamera, lalu izinkan akses kamera.</span></div></div></div>
-    <div class="actions"><button id="startCameraBtn" class="btn primary" type="button">Nyalakan Kamera</button><button id="stopCameraBtn" class="btn secondary" type="button" disabled>Hentikan Kamera</button></div>
-    <div id="queueNote" class="queue-note"></div>
+    <div class="reader-shell">
+      <div id="reader"></div>
+      <div id="cameraPlaceholder" class="placeholder"><b>Kamera belum dinyalakan</b><span>Tekan Nyalakan Kamera, lalu izinkan akses kamera.</span></div>
+    </div>
+    <div class="actions">
+      <button id="startCameraBtn" class="btn primary" onclick="startCamera()">Nyalakan Kamera</button>
+      <button id="stopCameraBtn" class="btn secondary" onclick="stopCamera()" disabled>Hentikan Kamera</button>
+    </div>
   </section>
+
   <section id="petugasPanel" class="card hidden">
-    <div id="petugasLogin" class="form"><h2 style="margin:0">Masuk Mode Petugas</h2><p class="help">Petugas hanya dapat mencari jamaah dan menandai hadir pada kegiatan aktif.</p><input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="Masukkan PIN Petugas"><button id="loginPetugasBtn" class="btn primary" type="button">Masuk</button></div>
-    <div id="petugasWork" class="hidden"><div class="actions" style="justify-content:flex-end;margin-top:0"><button id="logoutPetugasBtn" class="btn danger" type="button">Keluar Mode Petugas</button></div><div class="form" style="margin-top:14px"><input id="searchInput" placeholder="Cari nama, Nomor Porsi, atau NIK"><button id="searchPetugasBtn" class="btn primary" type="button">Cari Jamaah</button></div><div id="searchResults" class="results"></div></div>
+    <div id="petugasLogin" class="form">
+      <h2 style="margin:0">Masuk Mode Petugas</h2>
+      <p class="help">Petugas hanya dapat mencari jamaah dan menandai hadir pada kegiatan aktif.</p>
+      <input id="pinInput" type="password" inputmode="numeric" maxlength="8" placeholder="Masukkan PIN Petugas">
+      <button class="btn primary" onclick="loginPetugas()">Masuk</button>
+    </div>
+    <div id="petugasWork" class="hidden">
+      <div class="actions" style="justify-content:space-between;margin-top:0"><button class="btn danger" onclick="logoutPetugas()">Keluar Mode Petugas</button></div>
+      <div class="form" style="margin-top:14px">
+        <input id="searchInput" placeholder="Cari nama, Nomor Porsi, atau NIK" onkeydown="if(event.key==='Enter')searchPetugas()">
+        <button class="btn primary" onclick="searchPetugas()">Cari Jamaah</button>
+      </div>
+      <div id="searchResults" class="results"></div>
+    </div>
   </section>
+
   <section id="statusBox" class="status"><h3 id="statusTitle"></h3><p id="statusText"></p></section>
   <footer class="footer">AMANAH SMART • Sistem Manajemen Administrasi dan Pelayanan Terpadu</footer>
 </div>
 <script>
-'use strict';
-const STORE_CONFIG='amanah_scanner_config_v726';
-const STORE_CLIENT='amanah_scanner_client_v726';
-const STORE_PETUGAS='amanah_petugas_session_v726';
-const STORE_QUEUE='amanah_scanner_queue_v726';
-let endpoint='',apiToken='',qr=null,cameraRunning=false,scanBusy=false,lastCode='',lastAt=0,bootstrap=null;
+  // V7.2.7: scanner benar-benar memakai satu tautan permanen.
+  // Perangkat baru tidak perlu pernah dibuka dari komputer admin terlebih dahulu.
+  const DEFAULT_ENDPOINT='https://script.google.com/macros/s/AKfycbyZHL0Ig8oeOjWcb1KhahHBvCTXsGjRoOB8nJyaRTOuGxi_qz-hGsAc2cGyPDWh8Tk3/exec';
+  const STORAGE_ENDPOINT='amanah_scanner_endpoint_v727';
+  const STORAGE_CLIENT='amanah_scanner_client_v727';
+  const STORAGE_PETUGAS='amanah_petugas_session_v727';
+  let apiEndpoint=''; let qr=null; let cameraRunning=false; let scanBusy=false; let lastCode=''; let lastAt=0; let bootstrap=null; let bootstrapBusy=false;
 
-function byId(id){return document.getElementById(id);}function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}function attr(v){return esc(v).replace(/`/g,'&#96;');}
-function readJson(key,fallback){try{return JSON.parse(localStorage.getItem(key)||'')||fallback;}catch(_){return fallback;}}
-function writeJson(key,value){localStorage.setItem(key,JSON.stringify(value));}
-function normalizeEndpoint(v){
-  let x=String(v||'').trim();
-  if(!x)return '';
-  x=x.replace(/\/dev(?=\?|$)/,'/exec');
-  return x;
-}
-function init(){
-  const q=new URLSearchParams(location.search),saved=readJson(STORE_CONFIG,{});
-  const suppliedEndpoint=normalizeEndpoint(q.get('endpoint')||q.get('api')||'');
-  const suppliedToken=q.get('token')||q.get('key')||'';
-  if(suppliedEndpoint&&suppliedToken){
-    saved.endpoint=suppliedEndpoint;saved.token=suppliedToken;saved.savedAt=Date.now();saved.version='7.2.6';
-    writeJson(STORE_CONFIG,saved);
-    history.replaceState({},document.title,location.pathname);
+  function init(){
+    const q=new URLSearchParams(location.search);
+    const supplied=(q.get('endpoint')||'').trim();
+    if(supplied){
+      localStorage.setItem(STORAGE_ENDPOINT,supplied);
+      history.replaceState({},document.title,location.pathname);
+    }
+    // Endpoint dari tombol AMANAH SMART tetap didukung, tetapi perangkat baru
+    // langsung memakai deployment tetap AMANAH SMART bila belum punya simpanan lokal.
+    apiEndpoint=supplied||localStorage.getItem(STORAGE_ENDPOINT)||DEFAULT_ENDPOINT;
+    localStorage.setItem(STORAGE_ENDPOINT,apiEndpoint);
+    if(!localStorage.getItem(STORAGE_CLIENT))localStorage.setItem(STORAGE_CLIENT,'device-'+Math.random().toString(36).slice(2)+Date.now().toString(36));
+    loadBootstrap();
+    setInterval(loadBootstrap,10000);
+    window.addEventListener('focus',loadBootstrap);
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadBootstrap();});
+    window.addEventListener('pageshow',loadBootstrap);
+    if(localStorage.getItem(STORAGE_PETUGAS))showPetugasLoggedIn(true);
   }
-  endpoint=normalizeEndpoint(saved.endpoint||'');apiToken=saved.token||'';
-  if(!localStorage.getItem(STORE_CLIENT))localStorage.setItem(STORE_CLIENT,'device-'+Math.random().toString(36).slice(2)+Date.now().toString(36));
-  bind();showScan();refreshQueueNote();
-  if(!endpoint||!apiToken){
-    setSession(null,'Koneksi server belum tersimpan. Buka halaman ini sekali melalui tombol Buka Scanner Permanen di AMANAH SMART.');
-    showStatus('error','Scanner Belum Terhubung','Buka Scanner Permanen dari AMANAH SMART satu kali untuk menyambungkan perangkat ini.');
-    return;
+  function jsonp(action,params={}){
+    return new Promise((resolve,reject)=>{
+      const cb='amanahCb_'+Date.now()+'_'+Math.random().toString(36).slice(2); const script=document.createElement('script');
+      const timer=setTimeout(()=>{cleanup();reject(new Error('Server tidak merespons. Periksa koneksi internet.'));},20000);
+      function cleanup(){clearTimeout(timer);delete window[cb];script.remove();}
+      window[cb]=(data)=>{cleanup();resolve(data);};
+      const u=new URL(apiEndpoint);u.searchParams.set('api','absensiQr');u.searchParams.set('action',action);u.searchParams.set('callback',cb);u.searchParams.set('_ts',String(Date.now()));
+      Object.entries(params).forEach(([k,v])=>{if(v!==undefined&&v!==null)u.searchParams.set(k,v);});script.src=u.toString();script.onerror=()=>{cleanup();reject(new Error('Gagal terhubung ke server.'));};document.body.appendChild(script);
+    });
   }
-  connectAndLoad();
-  setInterval(loadBootstrap,15000);
-  window.addEventListener('online',()=>{connectAndLoad();flushQueue();});
-  document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadBootstrap();});
-  flushQueue();
-  if(localStorage.getItem(STORE_PETUGAS))showPetugasLoggedIn(true);
-}
-function bind(){byId('tabScan').onclick=showScan;byId('tabPetugas').onclick=showPetugas;byId('startCameraBtn').onclick=startCamera;byId('stopCameraBtn').onclick=stopCamera;byId('loginPetugasBtn').onclick=loginPetugas;byId('logoutPetugasBtn').onclick=logoutPetugas;byId('searchPetugasBtn').onclick=searchPetugas;byId('pinInput').addEventListener('keydown',e=>{if(e.key==='Enter')loginPetugas();});byId('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')searchPetugas();});}
-function jsonp(action,params={}){return new Promise((resolve,reject)=>{if(!endpoint||!apiToken){reject(new Error('Scanner belum terhubung ke server.'));return;}const cb='amanahCb_'+Date.now()+'_'+Math.random().toString(36).slice(2),script=document.createElement('script');let done=false;const cleanup=()=>{delete window[cb];script.remove();};const timer=setTimeout(()=>{if(done)return;done=true;cleanup();reject(new Error('Server tidak merespons. Periksa deployment Web App dan koneksi internet.'));},12000);window[cb]=data=>{if(done)return;done=true;clearTimeout(timer);cleanup();resolve(data);};script.onerror=()=>{if(done)return;done=true;clearTimeout(timer);cleanup();reject(new Error('Gagal mengakses Web App AMANAH SMART. Buka kembali scanner melalui tombol Buka Scanner Permanen.'));};const url=new URL(endpoint);url.searchParams.set('api','absensiQr');url.searchParams.set('action',action);url.searchParams.set('token',apiToken);url.searchParams.set('callback',cb);url.searchParams.set('_',Date.now());Object.keys(params).forEach(k=>{if(params[k]!==undefined&&params[k]!==null)url.searchParams.set(k,String(params[k]));});script.src=url.toString();document.head.appendChild(script);});}
-function unwrap(r){if(!r||!(r.success||r.sukses))throw new Error((r&&(r.message||r.pesan))||'Proses gagal.');return r.data||{};}
-async function jsonpRetry(action,params={},tries=2){let last;for(let i=0;i<tries;i++){try{return await jsonp(action,params);}catch(e){last=e;if(i<tries-1)await new Promise(r=>setTimeout(r,900));}}throw last;}
-async function connectAndLoad(){
-  try{
-    const ping=unwrap(await jsonpRetry('ping',{},2));
-    if(!ping.connected)throw new Error('Server scanner belum siap.');
-    await loadBootstrap();
-    showStatus('info','Scanner Terhubung','Koneksi ke AMANAH SMART aktif. Jadwal akan diperbarui otomatis.');
-  }catch(e){
-    setSession(null,e.message);
-    showStatus('error','Koneksi Scanner Gagal',e.message);
+  function unwrap(r){if(!r||!(r.success||r.sukses))throw new Error((r&& (r.message||r.pesan))||'Proses gagal.');return r.data||{};}
+  async function loadBootstrap(){
+    if(bootstrapBusy)return;
+    bootstrapBusy=true;
+    try{
+      bootstrap=unwrap(await jsonp('bootstrap'));
+      setSession(bootstrap.session);
+      document.getElementById('tabPetugas').disabled=!bootstrap.petugasAvailable;
+    }catch(e){
+      setSession(null,'Koneksi ke AMANAH SMART belum berhasil: '+e.message);
+    }finally{bootstrapBusy=false;}
   }
-}
-async function loadBootstrap(){try{bootstrap=unwrap(await jsonpRetry('bootstrap',{},2));setSession(bootstrap.session);byId('tabPetugas').disabled=!bootstrap.petugasAvailable;return true;}catch(e){setSession(null,e.message);return false;}}
-function setSession(s,error){const b=byId('sessionBox');if(s){b.className='session active';b.innerHTML=`<h2>${esc(s.label||'Kegiatan Aktif')}</h2><p>${esc(s.tanggalId||'')} ${esc(s.waktu||'')} • ${esc(s.tempat||'')}</p><p>Tahun Operasional ${esc(s.tahunOperasional||'')}</p>`;}else{b.className='session inactive';b.innerHTML=`<h2>Belum ada kegiatan aktif</h2><p>${esc(error||'Admin perlu mengaktifkan jadwal manasik terlebih dahulu.')}</p>`;}}
-function showScan(){byId('scanPanel').classList.remove('hidden');byId('petugasPanel').classList.add('hidden');byId('tabScan').classList.add('active');byId('tabPetugas').classList.remove('active');}
-function showPetugas(){stopCamera();byId('scanPanel').classList.add('hidden');byId('petugasPanel').classList.remove('hidden');byId('tabPetugas').classList.add('active');byId('tabScan').classList.remove('active');}
-async function startCamera(){if(cameraRunning)return;if(!window.isSecureContext){showStatus('error','Kamera Tidak Terhubung','Halaman wajib dibuka melalui HTTPS.');return;}if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){showStatus('error','Kamera Tidak Didukung','Gunakan Chrome atau Edge terbaru.');return;}if(!window.Html5Qrcode){showStatus('error','Komponen Kamera Gagal Dimuat','Periksa koneksi internet lalu muat ulang halaman.');return;}let permissionStream=null;try{permissionStream=await navigator.mediaDevices.getUserMedia({video:true,audio:false});permissionStream.getTracks().forEach(t=>t.stop());permissionStream=null;const cameras=await Html5Qrcode.getCameras();if(!cameras||!cameras.length)throw new DOMException('Tidak ada kamera.','NotFoundError');const rear=cameras.find(c=>/back|rear|environment|belakang/i.test(c.label||''));const selected=rear||cameras[cameras.length-1]||cameras[0];qr=new Html5Qrcode('reader');byId('cameraPlaceholder').classList.add('hidden');await qr.start(selected.id,{fps:10,qrbox:(w,h)=>{const x=Math.floor(Math.min(w,h)*.68);return{width:x,height:x};},aspectRatio:1.333,disableFlip:false},onDecoded,()=>{});cameraRunning=true;byId('startCameraBtn').disabled=true;byId('stopCameraBtn').disabled=false;showStatus('info','Kamera Aktif',`Menggunakan ${selected.label||'kamera perangkat'}. Arahkan ke QR kartu jamaah.`);}catch(e){if(permissionStream)permissionStream.getTracks().forEach(t=>t.stop());cameraRunning=false;try{if(qr)await qr.clear();}catch(_){}qr=null;byId('reader').innerHTML='';byId('cameraPlaceholder').classList.remove('hidden');byId('startCameraBtn').disabled=false;byId('stopCameraBtn').disabled=true;showStatus('error','Kamera Tidak Terhubung',cameraError(e));}}
-async function stopCamera(){if(qr&&cameraRunning){try{await qr.stop();}catch(_){}}cameraRunning=false;try{if(qr)await qr.clear();}catch(_){}qr=null;byId('reader').innerHTML='';byId('cameraPlaceholder').classList.remove('hidden');byId('startCameraBtn').disabled=false;byId('stopCameraBtn').disabled=true;}
-function cameraError(e){const all=((e&&e.name)||'')+' '+String((e&&e.message)||e||'');if(/NotAllowed|Permission|denied|SecurityError/i.test(all))return 'Izin kamera ditolak. Klik ikon di kiri alamat situs, lalu ubah izin Kamera menjadi Izinkan.';if(/NotFound|DevicesNotFound|Tidak ada kamera/i.test(all))return 'Kamera tidak ditemukan. Gunakan HP atau sambungkan webcam.';if(/NotReadable|TrackStart|Could not start/i.test(all))return 'Kamera sedang dipakai aplikasi lain. Tutup aplikasi Kamera, Zoom, WhatsApp, atau Meet.';return 'Kamera gagal dinyalakan: '+all.trim();}
-async function onDecoded(code){const now=Date.now();if(scanBusy||(code===lastCode&&now-lastAt<5000))return;scanBusy=true;lastCode=code;lastAt=now;try{await submitScan(code,false);}finally{setTimeout(()=>scanBusy=false,1300);}}
-async function submitScan(code,fromQueue){try{const data=unwrap(await jsonp('scan',{kode:code,clientKey:clientKey()}));showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}`);beep(data.duplikat?440:740);return true;}catch(e){if(!fromQueue&&/server tidak merespons|gagal terhubung|network|internet/i.test(e.message)){enqueueScan(code);showStatus('info','Disimpan Sementara','Koneksi terputus. Hasil scan disimpan di perangkat dan akan dikirim otomatis saat internet kembali.');return false;}showStatus('error','Scan Gagal',e.message);beep(220);return false;}}
-function enqueueScan(code){const q=readJson(STORE_QUEUE,[]);if(!q.some(x=>x.code===code))q.push({code,time:Date.now()});writeJson(STORE_QUEUE,q.slice(-100));refreshQueueNote();}
-async function flushQueue(){if(!navigator.onLine||!endpoint||!apiToken)return;const q=readJson(STORE_QUEUE,[]);if(!q.length){refreshQueueNote();return;}const remain=[];for(const item of q){const ok=await submitScan(item.code,true);if(!ok)remain.push(item);await new Promise(r=>setTimeout(r,600));}writeJson(STORE_QUEUE,remain);refreshQueueNote();}
-function refreshQueueNote(){const q=readJson(STORE_QUEUE,[]),n=byId('queueNote');n.classList.toggle('show',q.length>0);n.textContent=q.length?`${q.length} hasil scan menunggu dikirim saat koneksi tersedia.`:'';}
-async function loginPetugas(){try{const pin=byId('pinInput').value.trim();if(!/^\d{4,8}$/.test(pin))throw new Error('PIN harus terdiri dari 4 sampai 8 angka.');const data=unwrap(await jsonp('petugasLogin',{pin,clientKey:clientKey()}));localStorage.setItem(STORE_PETUGAS,data.token);byId('pinInput').value='';showPetugasLoggedIn(true);showStatus('success','Mode Petugas Aktif','Sesi berlaku maksimal 6 jam.');}catch(e){showStatus('error','Login Gagal',e.message);}}
-function showPetugasLoggedIn(on){byId('petugasLogin').classList.toggle('hidden',on);byId('petugasWork').classList.toggle('hidden',!on);}
-async function logoutPetugas(){const t=localStorage.getItem(STORE_PETUGAS)||'';try{if(t)await jsonp('petugasLogout',{sessionToken:t});}catch(_){}localStorage.removeItem(STORE_PETUGAS);showPetugasLoggedIn(false);byId('searchResults').innerHTML='';}
-async function searchPetugas(){try{const q=byId('searchInput').value.trim();if(q.length<2)throw new Error('Masukkan minimal 2 karakter.');const data=unwrap(await jsonp('petugasSearch',{sessionToken:petugasToken(),query:q}));renderResults(data.rows||[]);}catch(e){sessionAwareError(e);}}
-function renderResults(rows){const h=byId('searchResults');if(!rows.length){h.innerHTML='<div class="help">Jamaah tidak ditemukan.</div>';return;}h.innerHTML=rows.map(r=>`<div class="result"><div><strong>${esc(r.namaJamaah)}</strong><small>${esc(r.nomorPorsi)} • ${esc(r.status||'Belum Hadir')}</small></div><button class="btn primary" type="button" data-porsi="${attr(r.nomorPorsi)}" ${String(r.status||'').toLowerCase()==='hadir'?'disabled':''}>${String(r.status||'').toLowerCase()==='hadir'?'Sudah Hadir':'Tandai Hadir'}</button></div>`).join('');h.querySelectorAll('button[data-porsi]').forEach(b=>b.onclick=()=>submitPetugas(b.dataset.porsi));}
-async function submitPetugas(porsi){try{const data=unwrap(await jsonp('petugasSubmit',{sessionToken:petugasToken(),nomorPorsi:porsi}));showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}`);await searchPetugas();}catch(e){sessionAwareError(e);}}
-function sessionAwareError(e){if(/sesi petugas/i.test(e.message)){localStorage.removeItem(STORE_PETUGAS);showPetugasLoggedIn(false);}showStatus('error','Proses Gagal',e.message);}
-function petugasToken(){const t=localStorage.getItem(STORE_PETUGAS)||'';if(!t)throw new Error('Sesi petugas tidak tersedia. Silakan masuk kembali.');return t;}function clientKey(){return localStorage.getItem(STORE_CLIENT)||'anonymous';}
-function showStatus(type,title,text){const b=byId('statusBox');b.className='status show '+type;byId('statusTitle').textContent=title;byId('statusText').textContent=text;}
-function beep(freq){try{const C=window.AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=freq;o.connect(g);g.connect(c.destination);g.gain.value=.05;o.start();setTimeout(()=>{o.stop();c.close();},120);}catch(_){}}
-window.addEventListener('beforeunload',()=>{if(qr&&cameraRunning)qr.stop().catch(()=>{});});document.addEventListener('DOMContentLoaded',init);
+  function setSession(session,error){const b=document.getElementById('sessionBox');if(session){b.className='session active';b.innerHTML=`<h2>${esc(session.label||'Kegiatan Aktif')}</h2><p>${esc(session.tanggalId||'')} ${esc(session.waktu||'')} • ${esc(session.tempat||'')}</p><p>Tahun Operasional ${esc(session.tahunOperasional||'')}</p>`;}else{b.className='session inactive';b.innerHTML=`<h2>Belum ada kegiatan aktif</h2><p>${esc(error||'Admin perlu mengaktifkan jadwal manasik terlebih dahulu.')}</p>`;}}
+  function showScan(){document.getElementById('scanPanel').classList.remove('hidden');document.getElementById('petugasPanel').classList.add('hidden');document.getElementById('tabScan').classList.add('active');document.getElementById('tabPetugas').classList.remove('active');}
+  function showPetugas(){stopCamera();document.getElementById('scanPanel').classList.add('hidden');document.getElementById('petugasPanel').classList.remove('hidden');document.getElementById('tabPetugas').classList.add('active');document.getElementById('tabScan').classList.remove('active');}
+  async function startCamera(){
+    if(cameraRunning)return;if(!window.Html5Qrcode){showStatus('error','Komponen Kamera Gagal Dimuat','Periksa koneksi internet lalu muat ulang halaman.');return;}
+    try{qr=qr||new Html5Qrcode('reader');document.getElementById('cameraPlaceholder').classList.add('hidden');await qr.start({facingMode:{ideal:'environment'}},{fps:10,qrbox:(w,h)=>{const x=Math.floor(Math.min(w,h)*.68);return{width:x,height:x};},aspectRatio:1.333},onDecoded,()=>{});cameraRunning=true;document.getElementById('startCameraBtn').disabled=true;document.getElementById('stopCameraBtn').disabled=false;showStatus('info','Kamera Aktif','Arahkan kamera ke QR pada kartu jamaah.');}
+    catch(e){cameraRunning=false;document.getElementById('cameraPlaceholder').classList.remove('hidden');document.getElementById('startCameraBtn').disabled=false;document.getElementById('stopCameraBtn').disabled=true;showStatus('error','Kamera Tidak Terhubung',cameraError(e));}
+  }
+  async function stopCamera(){if(qr&&cameraRunning){try{await qr.stop();}catch(_){}}cameraRunning=false;document.getElementById('reader').innerHTML='';qr=null;document.getElementById('cameraPlaceholder').classList.remove('hidden');document.getElementById('startCameraBtn').disabled=false;document.getElementById('stopCameraBtn').disabled=true;}
+  function cameraError(e){const n=(e&&e.name)||'',m=String((e&&e.message)||e||'');if(/NotAllowed|Permission|denied/i.test(n+' '+m))return 'Izin kamera ditolak. Buka pengaturan situs browser dan izinkan kamera.';if(/NotFound|DevicesNotFound/i.test(n+' '+m))return 'Kamera tidak ditemukan pada perangkat ini.';if(/NotReadable|TrackStart/i.test(n+' '+m))return 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera lalu coba kembali.';return 'Kamera gagal dinyalakan. Pastikan halaman dibuka melalui HTTPS dan izin kamera aktif.';}
+  async function onDecoded(code){const now=Date.now();if(scanBusy||(code===lastCode&&now-lastAt<5000))return;scanBusy=true;lastCode=code;lastAt=now;try{const data=unwrap(await jsonp('scan',{kode:code,clientKey:clientKey()}));showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}`);beep(data.duplikat?440:740);}catch(e){showStatus('error','Scan Gagal',e.message);beep(220);}finally{setTimeout(()=>scanBusy=false,1300);}}
+  async function loginPetugas(){try{const pin=document.getElementById('pinInput').value.trim();if(!/^\d{4,8}$/.test(pin))throw new Error('PIN harus terdiri dari 4 sampai 8 angka.');const data=unwrap(await jsonp('petugasLogin',{pin,clientKey:clientKey()}));localStorage.setItem(STORAGE_PETUGAS,data.token);document.getElementById('pinInput').value='';showPetugasLoggedIn(true);showStatus('success','Mode Petugas Aktif','Sesi berlaku maksimal 6 jam.');}catch(e){showStatus('error','Login Gagal',e.message);}}
+  function showPetugasLoggedIn(on){document.getElementById('petugasLogin').classList.toggle('hidden',on);document.getElementById('petugasWork').classList.toggle('hidden',!on);}
+  async function logoutPetugas(){const t=localStorage.getItem(STORAGE_PETUGAS)||'';try{if(t)await jsonp('petugasLogout',{sessionToken:t});}catch(_){}localStorage.removeItem(STORAGE_PETUGAS);showPetugasLoggedIn(false);document.getElementById('searchResults').innerHTML='';}
+  async function searchPetugas(){try{const q=document.getElementById('searchInput').value.trim();if(q.length<2)throw new Error('Masukkan minimal 2 karakter pencarian.');const data=unwrap(await jsonp('petugasSearch',{sessionToken:petugasToken(),query:q}));renderResults(data.rows||[]);}catch(e){sessionAwareError(e);}}
+  function renderResults(rows){const h=document.getElementById('searchResults');if(!rows.length){h.innerHTML='<div class="help">Jamaah tidak ditemukan.</div>';return;}h.innerHTML=rows.map(r=>`<div class="result"><div><strong>${esc(r.namaJamaah)}</strong><small>${esc(r.nomorPorsi)} • ${esc(r.status||'Belum Hadir')}</small></div><button class="btn primary" onclick="submitPetugas('${attr(r.nomorPorsi)}')" ${String(r.status||'').toLowerCase()==='hadir'?'disabled':''}>${String(r.status||'').toLowerCase()==='hadir'?'Sudah Hadir':'Tandai Hadir'}</button></div>`).join('');}
+  async function submitPetugas(porsi){try{const data=unwrap(await jsonp('petugasSubmit',{sessionToken:petugasToken(),nomorPorsi:porsi}));showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}`);await searchPetugas();}catch(e){sessionAwareError(e);}}
+  function sessionAwareError(e){if(/sesi petugas/i.test(e.message)){localStorage.removeItem(STORAGE_PETUGAS);showPetugasLoggedIn(false);}showStatus('error','Proses Gagal',e.message);}
+  function petugasToken(){const t=localStorage.getItem(STORAGE_PETUGAS)||'';if(!t)throw new Error('Sesi petugas tidak tersedia. Silakan masuk kembali.');return t;}
+  function clientKey(){return localStorage.getItem(STORAGE_CLIENT)||'anonymous';}
+  function showStatus(type,title,text){const b=document.getElementById('statusBox');b.className='status show '+type;document.getElementById('statusTitle').textContent=title;document.getElementById('statusText').textContent=text;}
+  function beep(freq){try{const C=window.AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=freq;o.connect(g);g.connect(c.destination);g.gain.value=.05;o.start();setTimeout(()=>{o.stop();c.close();},120);}catch(_){}}
+  function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}function attr(v){return esc(v).replace(/`/g,'&#96;');}
+  window.addEventListener('beforeunload',()=>{if(qr&&cameraRunning)qr.stop().catch(()=>{});});document.addEventListener('DOMContentLoaded',init);
 </script>
 </body>
 </html>
