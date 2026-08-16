@@ -76,9 +76,16 @@
   const STORAGE_ENDPOINT='amanah_scanner_endpoint_v727';
   const STORAGE_CLIENT='amanah_scanner_client_v727';
   const STORAGE_PETUGAS='amanah_petugas_session_v727';
-  let apiEndpoint=''; let qr=null; let cameraRunning=false; let scanBusy=false; let lastCode=''; let lastAt=0; let bootstrap=null; let bootstrapBusy=false;
+  let apiEndpoint=''; let qr=null; let cameraRunning=false; let lastCode=''; let lastAt=0; let bootstrap=null; let bootstrapBusy=false;
+  const scanQueue=[]; const queuedCodes=new Set(); let queueProcessing=false;
+  const IS_EMBEDDED_PREVIEW=(window.self!==window.top)&&!/\.github\.io$/i.test(location.hostname);
 
   function init(){
+    if(IS_EMBEDDED_PREVIEW){
+      setSession(null,'Pratinjau file dinonaktifkan agar tidak meminta izin jaringan. Buka Scanner Permanen melalui URL GitHub asli.');
+      showStatus('info','Gunakan Scanner GitHub','Pratinjau ChatGPT tidak melakukan koneksi jaringan. Buka https://nadhif1311-simkbihu.github.io/scanner-absensi-kbihu/ untuk penggunaan sebenarnya.');
+      return;
+    }
     const q=new URLSearchParams(location.search);
     const supplied=(q.get('endpoint')||'').trim();
     if(supplied){
@@ -91,7 +98,7 @@
     localStorage.setItem(STORAGE_ENDPOINT,apiEndpoint);
     if(!localStorage.getItem(STORAGE_CLIENT))localStorage.setItem(STORAGE_CLIENT,'device-'+Math.random().toString(36).slice(2)+Date.now().toString(36));
     loadBootstrap();
-    setInterval(loadBootstrap,10000);
+    setInterval(loadBootstrap,15000);
     window.addEventListener('focus',loadBootstrap);
     document.addEventListener('visibilitychange',()=>{if(!document.hidden)loadBootstrap();});
     window.addEventListener('pageshow',loadBootstrap);
@@ -109,7 +116,7 @@
   }
   function unwrap(r){if(!r||!(r.success||r.sukses))throw new Error((r&& (r.message||r.pesan))||'Proses gagal.');return r.data||{};}
   async function loadBootstrap(){
-    if(bootstrapBusy)return;
+    if(bootstrapBusy||queueProcessing||scanQueue.length)return;
     bootstrapBusy=true;
     try{
       bootstrap=unwrap(await jsonp('bootstrap'));
@@ -165,7 +172,38 @@
   }
   async function stopCamera(){if(qr&&cameraRunning){try{await qr.stop();}catch(_){}}if(qr){try{await qr.clear();}catch(_){}}cameraRunning=false;document.getElementById('reader').innerHTML='';qr=null;document.getElementById('cameraPlaceholder').classList.remove('hidden');document.getElementById('startCameraBtn').disabled=false;document.getElementById('stopCameraBtn').disabled=true;}
   function cameraError(e){const n=(e&&e.name)||'',m=String((e&&e.message)||e||'');const all=n+' '+m;if(/NotAllowed|Permission|denied|PermissionDenied/i.test(all))return 'Izin kamera ditolak. Klik ikon pengaturan situs di sebelah alamat website, pilih Kamera → Izinkan, lalu muat ulang halaman.';if(/NotFound|DevicesNotFound|tidak ada kamera/i.test(all))return 'Kamera tidak ditemukan. Jika memakai PC/laptop, pastikan webcam tersedia dan terdeteksi. Jika memakai HP, pastikan browser memiliki izin kamera.';if(/NotReadable|TrackStart|Could not start|device in use/i.test(all))return 'Kamera terdeteksi tetapi tidak dapat dibuka. Tutup aplikasi lain yang sedang memakai kamera (Camera, WhatsApp, Zoom, Meet), lalu coba lagi.';if(/Overconstrained|ConstraintNotSatisfied/i.test(all))return 'Kamera tersedia tetapi pengaturan kamera tidak cocok. Muat ulang halaman lalu coba lagi.';if(/Security|secure|https/i.test(all))return 'Akses kamera diblokir oleh keamanan browser. Pastikan alamat menggunakan HTTPS dan izin kamera untuk situs ini aktif.';return 'Kamera gagal dibuka oleh browser. Periksa izin kamera pada situs ini, lalu muat ulang halaman dan coba kembali. Detail: '+m.slice(0,140);}
-  async function onDecoded(code){const now=Date.now();if(scanBusy||(code===lastCode&&now-lastAt<5000))return;scanBusy=true;lastCode=code;lastAt=now;try{const data=unwrap(await jsonp('scan',{kode:code,clientKey:clientKey()}));showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}`);beep(data.duplikat?440:740);}catch(e){showStatus('error','Scan Gagal',e.message);beep(220);}finally{setTimeout(()=>scanBusy=false,1300);}}
+  function onDecoded(code){
+    const clean=String(code||'').trim(); const now=Date.now();
+    if(!clean)return;
+    if((clean===lastCode&&now-lastAt<2500)||queuedCodes.has(clean))return;
+    lastCode=clean; lastAt=now;
+    queuedCodes.add(clean); scanQueue.push({code:clean,queuedAt:now});
+    showStatus('info','QR Terbaca',`Menyimpan ke AMANAH SMART… Antrean ${scanQueue.length}`);
+    beep(560);
+    processScanQueue_();
+  }
+  async function processScanQueue_(){
+    if(queueProcessing)return;
+    queueProcessing=true;
+    try{
+      while(scanQueue.length){
+        const job=scanQueue.shift();
+        try{
+          const data=unwrap(await jsonp('scan',{kode:job.code,clientKey:clientKey()}));
+          showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}${scanQueue.length?' • Antrean '+scanQueue.length:''}`);
+          beep(data.duplikat?440:780);
+        }catch(e){
+          showStatus('error','Scan Gagal',`${e.message}${scanQueue.length?' • Antrean '+scanQueue.length:''}`);
+          beep(220);
+        }finally{
+          queuedCodes.delete(job.code);
+        }
+      }
+    }finally{
+      queueProcessing=false;
+      setTimeout(loadBootstrap,300);
+    }
+  }
   async function loginPetugas(){try{const pin=document.getElementById('pinInput').value.trim();if(!/^\d{4,8}$/.test(pin))throw new Error('PIN harus terdiri dari 4 sampai 8 angka.');const data=unwrap(await jsonp('petugasLogin',{pin,clientKey:clientKey()}));localStorage.setItem(STORAGE_PETUGAS,data.token);document.getElementById('pinInput').value='';showPetugasLoggedIn(true);showStatus('success','Mode Petugas Aktif','Sesi berlaku maksimal 6 jam.');}catch(e){showStatus('error','Login Gagal',e.message);}}
   function showPetugasLoggedIn(on){document.getElementById('petugasLogin').classList.toggle('hidden',on);document.getElementById('petugasWork').classList.toggle('hidden',!on);}
   async function logoutPetugas(){const t=localStorage.getItem(STORAGE_PETUGAS)||'';try{if(t)await jsonp('petugasLogout',{sessionToken:t});}catch(_){}localStorage.removeItem(STORAGE_PETUGAS);showPetugasLoggedIn(false);document.getElementById('searchResults').innerHTML='';}
