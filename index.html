@@ -123,12 +123,48 @@
   function showScan(){document.getElementById('scanPanel').classList.remove('hidden');document.getElementById('petugasPanel').classList.add('hidden');document.getElementById('tabScan').classList.add('active');document.getElementById('tabPetugas').classList.remove('active');}
   function showPetugas(){stopCamera();document.getElementById('scanPanel').classList.add('hidden');document.getElementById('petugasPanel').classList.remove('hidden');document.getElementById('tabPetugas').classList.add('active');document.getElementById('tabScan').classList.remove('active');}
   async function startCamera(){
-    if(cameraRunning)return;if(!window.Html5Qrcode){showStatus('error','Komponen Kamera Gagal Dimuat','Periksa koneksi internet lalu muat ulang halaman.');return;}
-    try{qr=qr||new Html5Qrcode('reader');document.getElementById('cameraPlaceholder').classList.add('hidden');await qr.start({facingMode:{ideal:'environment'}},{fps:10,qrbox:(w,h)=>{const x=Math.floor(Math.min(w,h)*.68);return{width:x,height:x};},aspectRatio:1.333},onDecoded,()=>{});cameraRunning=true;document.getElementById('startCameraBtn').disabled=true;document.getElementById('stopCameraBtn').disabled=false;showStatus('info','Kamera Aktif','Arahkan kamera ke QR pada kartu jamaah.');}
-    catch(e){cameraRunning=false;document.getElementById('cameraPlaceholder').classList.remove('hidden');document.getElementById('startCameraBtn').disabled=false;document.getElementById('stopCameraBtn').disabled=true;showStatus('error','Kamera Tidak Terhubung',cameraError(e));}
+    if(cameraRunning)return;
+    if(!window.Html5Qrcode){showStatus('error','Komponen Kamera Gagal Dimuat','Periksa koneksi internet lalu muat ulang halaman.');return;}
+    const placeholder=document.getElementById('cameraPlaceholder');
+    const startBtn=document.getElementById('startCameraBtn');
+    const stopBtn=document.getElementById('stopCameraBtn');
+    const config={fps:10,qrbox:(w,h)=>{const x=Math.floor(Math.min(w,h)*.68);return{width:x,height:x};}};
+    startBtn.disabled=true;
+    placeholder.classList.add('hidden');
+    try{
+      // Ambil daftar kamera terlebih dahulu. Cara ini lebih stabil di HP, laptop,
+      // webcam USB, dan perangkat yang tidak memiliki kamera berlabel "environment".
+      const cameras=await Html5Qrcode.getCameras();
+      if(!cameras||!cameras.length)throw new Error('NotFoundError: Tidak ada kamera yang tersedia.');
+      const preferred=cameras.find(c=>/back|rear|environment|belakang/i.test(String(c.label||'')))||cameras[0];
+      qr=qr||new Html5Qrcode('reader');
+      try{
+        await qr.start(preferred.id,config,onDecoded,()=>{});
+      }catch(primaryError){
+        // Jika kamera pilihan gagal dibuka, coba kamera lain satu per satu.
+        let opened=false,lastError=primaryError;
+        for(const cam of cameras){
+          if(cam.id===preferred.id)continue;
+          try{await qr.start(cam.id,config,onDecoded,()=>{});opened=true;break;}catch(err){lastError=err;}
+        }
+        if(!opened)throw lastError;
+      }
+      cameraRunning=true;
+      stopBtn.disabled=false;
+      showStatus('info','Kamera Aktif','Arahkan kamera ke QR pada kartu jamaah.');
+    }catch(e){
+      cameraRunning=false;
+      try{if(qr){await qr.clear();}}catch(_){}
+      qr=null;
+      document.getElementById('reader').innerHTML='';
+      placeholder.classList.remove('hidden');
+      startBtn.disabled=false;
+      stopBtn.disabled=true;
+      showStatus('error','Kamera Tidak Terhubung',cameraError(e));
+    }
   }
-  async function stopCamera(){if(qr&&cameraRunning){try{await qr.stop();}catch(_){}}cameraRunning=false;document.getElementById('reader').innerHTML='';qr=null;document.getElementById('cameraPlaceholder').classList.remove('hidden');document.getElementById('startCameraBtn').disabled=false;document.getElementById('stopCameraBtn').disabled=true;}
-  function cameraError(e){const n=(e&&e.name)||'',m=String((e&&e.message)||e||'');if(/NotAllowed|Permission|denied/i.test(n+' '+m))return 'Izin kamera ditolak. Buka pengaturan situs browser dan izinkan kamera.';if(/NotFound|DevicesNotFound/i.test(n+' '+m))return 'Kamera tidak ditemukan pada perangkat ini.';if(/NotReadable|TrackStart/i.test(n+' '+m))return 'Kamera sedang digunakan aplikasi lain. Tutup aplikasi kamera lalu coba kembali.';return 'Kamera gagal dinyalakan. Pastikan halaman dibuka melalui HTTPS dan izin kamera aktif.';}
+  async function stopCamera(){if(qr&&cameraRunning){try{await qr.stop();}catch(_){}}if(qr){try{await qr.clear();}catch(_){}}cameraRunning=false;document.getElementById('reader').innerHTML='';qr=null;document.getElementById('cameraPlaceholder').classList.remove('hidden');document.getElementById('startCameraBtn').disabled=false;document.getElementById('stopCameraBtn').disabled=true;}
+  function cameraError(e){const n=(e&&e.name)||'',m=String((e&&e.message)||e||'');const all=n+' '+m;if(/NotAllowed|Permission|denied|PermissionDenied/i.test(all))return 'Izin kamera ditolak. Klik ikon pengaturan situs di sebelah alamat website, pilih Kamera → Izinkan, lalu muat ulang halaman.';if(/NotFound|DevicesNotFound|tidak ada kamera/i.test(all))return 'Kamera tidak ditemukan. Jika memakai PC/laptop, pastikan webcam tersedia dan terdeteksi. Jika memakai HP, pastikan browser memiliki izin kamera.';if(/NotReadable|TrackStart|Could not start|device in use/i.test(all))return 'Kamera terdeteksi tetapi tidak dapat dibuka. Tutup aplikasi lain yang sedang memakai kamera (Camera, WhatsApp, Zoom, Meet), lalu coba lagi.';if(/Overconstrained|ConstraintNotSatisfied/i.test(all))return 'Kamera tersedia tetapi pengaturan kamera tidak cocok. Muat ulang halaman lalu coba lagi.';if(/Security|secure|https/i.test(all))return 'Akses kamera diblokir oleh keamanan browser. Pastikan alamat menggunakan HTTPS dan izin kamera untuk situs ini aktif.';return 'Kamera gagal dibuka oleh browser. Periksa izin kamera pada situs ini, lalu muat ulang halaman dan coba kembali. Detail: '+m.slice(0,140);}
   async function onDecoded(code){const now=Date.now();if(scanBusy||(code===lastCode&&now-lastAt<5000))return;scanBusy=true;lastCode=code;lastAt=now;try{const data=unwrap(await jsonp('scan',{kode:code,clientKey:clientKey()}));showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}`);beep(data.duplikat?440:740);}catch(e){showStatus('error','Scan Gagal',e.message);beep(220);}finally{setTimeout(()=>scanBusy=false,1300);}}
   async function loginPetugas(){try{const pin=document.getElementById('pinInput').value.trim();if(!/^\d{4,8}$/.test(pin))throw new Error('PIN harus terdiri dari 4 sampai 8 angka.');const data=unwrap(await jsonp('petugasLogin',{pin,clientKey:clientKey()}));localStorage.setItem(STORAGE_PETUGAS,data.token);document.getElementById('pinInput').value='';showPetugasLoggedIn(true);showStatus('success','Mode Petugas Aktif','Sesi berlaku maksimal 6 jam.');}catch(e){showStatus('error','Login Gagal',e.message);}}
   function showPetugasLoggedIn(on){document.getElementById('petugasLogin').classList.toggle('hidden',on);document.getElementById('petugasWork').classList.toggle('hidden',!on);}
