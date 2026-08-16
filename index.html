@@ -135,7 +135,9 @@
     const placeholder=document.getElementById('cameraPlaceholder');
     const startBtn=document.getElementById('startCameraBtn');
     const stopBtn=document.getElementById('stopCameraBtn');
-    const config={fps:10,qrbox:(w,h)=>{const x=Math.floor(Math.min(w,h)*.68);return{width:x,height:x};}};
+    // Fokus hanya QR Code dan naikkan frekuensi pembacaan agar kartu lebih cepat terdeteksi.
+    // Nilai 15 fps masih cukup ringan untuk mayoritas HP sekaligus lebih responsif dari 10 fps.
+    const config={fps:15,qrbox:(w,h)=>{const x=Math.floor(Math.min(w,h)*.74);return{width:x,height:x};},aspectRatio:1.333};
     startBtn.disabled=true;
     placeholder.classList.add('hidden');
     try{
@@ -144,7 +146,12 @@
       const cameras=await Html5Qrcode.getCameras();
       if(!cameras||!cameras.length)throw new Error('NotFoundError: Tidak ada kamera yang tersedia.');
       const preferred=cameras.find(c=>/back|rear|environment|belakang/i.test(String(c.label||'')))||cameras[0];
-      qr=qr||new Html5Qrcode('reader');
+      if(!qr){
+        const qrOnly=(window.Html5QrcodeSupportedFormats&&Html5QrcodeSupportedFormats.QR_CODE)
+          ? {formatsToSupport:[Html5QrcodeSupportedFormats.QR_CODE],verbose:false,experimentalFeatures:{useBarCodeDetectorIfSupported:true}}
+          : {verbose:false};
+        qr=new Html5Qrcode('reader',qrOnly);
+      }
       try{
         await qr.start(preferred.id,config,onDecoded,()=>{});
       }catch(primaryError){
@@ -191,6 +198,9 @@
         try{
           const data=unwrap(await jsonp('scan',{kode:job.code,clientKey:clientKey()}));
           showStatus(data.duplikat?'info':'success',data.duplikat?'Sudah Tercatat':'Kehadiran Berhasil',`${data.namaJamaah||''} • ${data.nomorPorsi||''}${scanQueue.length?' • Antrean '+scanQueue.length:''}`);
+          // Getaran sangat singkat sebagai konfirmasi fisik bahwa hasil sudah diterima server.
+          // Duplikat tetap diberi getaran lebih ringan agar petugas tahu QR terbaca, tetapi bukan pencatatan baru.
+          vibrate_(data.duplikat?15:30);
           beep(data.duplikat?440:780);
         }catch(e){
           showStatus('error','Scan Gagal',`${e.message}${scanQueue.length?' • Antrean '+scanQueue.length:''}`);
@@ -214,7 +224,8 @@
   function petugasToken(){const t=localStorage.getItem(STORAGE_PETUGAS)||'';if(!t)throw new Error('Sesi petugas tidak tersedia. Silakan masuk kembali.');return t;}
   function clientKey(){return localStorage.getItem(STORAGE_CLIENT)||'anonymous';}
   function showStatus(type,title,text){const b=document.getElementById('statusBox');b.className='status show '+type;document.getElementById('statusTitle').textContent=title;document.getElementById('statusText').textContent=text;}
-  function beep(freq){try{const C=window.AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=freq;o.connect(g);g.connect(c.destination);g.gain.value=.05;o.start();setTimeout(()=>{o.stop();c.close();},120);}catch(_){}}
+  function vibrate_(duration){try{if(navigator&&typeof navigator.vibrate==='function')navigator.vibrate(Math.max(1,Number(duration)||20));}catch(_){}}
+  function beep(freq){try{const C=window.AudioContext||window.webkitAudioContext,c=new C(),o=c.createOscillator(),g=c.createGain();o.frequency.value=freq;o.connect(g);g.connect(c.destination);g.gain.value=.05;o.start();setTimeout(()=>{o.stop();c.close();},100);}catch(_){}}
   function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}function attr(v){return esc(v).replace(/`/g,'&#96;');}
   window.addEventListener('beforeunload',()=>{if(qr&&cameraRunning)qr.stop().catch(()=>{});});document.addEventListener('DOMContentLoaded',init);
 </script>
